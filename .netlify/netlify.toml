@@ -1,0 +1,28 @@
+plugins = []
+headers = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "C:\\Users\\anish\\.gemini\\antigravity\\scratch\\netflix-clone\\src"
+publishOrigin = "config"
+commandOrigin = "config"
+command = "echo 'No build command needed'"
+base = "C:\\Users\\anish\\.gemini\\antigravity\\scratch\\netflix-clone"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]

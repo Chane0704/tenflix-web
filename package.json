@@ -1,0 +1,12 @@
+{
+    "name": "netflix-clone",
+    "version": "1.0.0",
+    "description": "A static Netflix clone",
+    "scripts": {
+        "start": "serve src",
+        "build": "echo 'No build step'"
+    },
+    "dependencies": {
+        "serve": "^14.2.0"
+    }
+}
