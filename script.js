@@ -1196,7 +1196,7 @@ const app = {
             // Hero Section - SLIDESHOW LOGIC
             // Get potential hero items: ALL Custom content
             // We filter for items that are explicitly custom to ensure we don't pick up random TMDB fills if any exist there.
-            const customHeroes = app.state.customContent;
+            const customHeroes = app.state.customContent.filter(i => !(i.title && i.title.toLowerCase().includes('how to train your')));
             let heroItems = customHeroes.length > 0 ? customHeroes : [app.state.tmdbContent.trending[0]];
 
             // Priority ordering: Emily first, Friends second, then random
