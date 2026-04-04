@@ -6,7 +6,7 @@ window.NETFLIX_INITIAL_CONTENT = [
         "description": "As the son of a Viking leader on the cusp of manhood, shy Hiccup faces a rite of passage: he must kill a dragon to prove his warrior mettle. But after downing a feared dragon, he realizes that he no longer wants to destroy it, and instead befriends the beast.",
         "genre": "Animation, Action, Adventure",
         "poster_path": "https://image.tmdb.org/t/p/original/ygGmAO60t8GyqUo9xYeYxSZAR3b.jpg",
-        "backdrop_path": "https://image.tmdb.org/t/p/original/mSXzQhc1o4JvLwWdYm8qZ0aXQGq.jpg",
+        "backdrop_path": "https://image.tmdb.org/t/p/original/59vDC1BuEQvti24OMr0ZvtAK6R1.jpg",
         "release_date": "2010-03-26",
         "runtime": 98,
         "vote_average": 7.8,
