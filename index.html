@@ -6,11 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenFlix</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Load Initial Published Content -->
-    <script src="initialContent.js"></script>
-    <script src="script.js"></script>
     <style>
         /* Critical CSS for loading state */
         body {
@@ -131,13 +126,42 @@
             </div>
 
             <!-- Video Player Overlay (Higher Z-Index) -->
-            <div id="player-container" class="modal-container hidden" style="z-index: 3000; background: black;"
+            <div id="player-container" class="modal-container hidden"
+                style="z-index: 3000; background: black; padding: 0 !important; margin: 0 !important; width: 100vw !important; height: 100vh !important; display: flex; align-items: center; justify-content: center;"
                 onclick="if(event.target === this) app.handlers.closePlayer()"></div>
         </div>
     </div>
 
-    <script src="initialContent.js?v=S5_FIXED"></script>
-    <script src="script.js?v=S5_FIXED"></script>
+    <div id="loader"
+        style="position:fixed; inset:0; background-color:#141414; z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+        <div
+            style="color:#e50914; font-size:4rem; font-weight:bold; letter-spacing:2px; animation: pulse 1.5s infinite;">
+            TENFLIX</div>
+        <style>
+            @keyframes pulse {
+                0% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+
+                50% {
+                    opacity: 0.5;
+                    transform: scale(0.95);
+                }
+
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+            }
+        </style>
+    </div>
+
+    <!-- Move Lucide here and defer everything -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <link rel="stylesheet" href="patch.css?v=LAYOUT_FIX_2">
+    <script src="initialContent.js?v=HTTYD_ADDED" defer></script>
+    <script src="script.js?v=FRIENDS_SEARCH" defer></script>
 </body>
 
 </html>

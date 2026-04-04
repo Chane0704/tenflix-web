@@ -453,7 +453,11 @@ body {
     border-radius: 8px;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
+    box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+}
+
+/* GLOBAL VIDEO PLAYER FIXES */
+.modal-content {
     transform: scale(0.9);
     transition: transform 0.3s ease;
     margin-bottom: 50px;
@@ -958,3 +962,309 @@ textarea:focus {
         font-size: 1.2rem;
     }
 }
+
+/* =========================================
+   MOBILE PLAYER OPTIMIZATION
+   ========================================= */
+
+/* Base Player Container overrides */
+.video-player-container {
+    width: 100% !important;
+    height: 100% !important;
+    background: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure iframe fills container */
+.video-player-container iframe {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh;
+    border: none;
+}
+
+/* Close Button - Make it easier to tap on mobile */
+.close-player {
+    top: 20px !important;
+    right: 20px !important;
+    padding: 15px !important;
+    /* Larger touch target */
+    background: rgba(0, 0, 0, 0.5) !important;
+    border-radius: 50%;
+    z-index: 9999 !important;
+}
+
+/* MOBILE LANDSCAPE OPTIMIZATION */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+
+    /* Hide Navbar in landscape to give full space to video */
+    .navbar {
+        display: none !important;
+    }
+
+    /* Make player absolute full screen */
+    #player-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 99999;
+        background: black;
+    }
+
+    .video-player-container {
+        width: 100vw !important;
+        height: 100vh !important;
+    }
+
+    /* Move close button slightly to avoid being cut off */
+    .close-player {
+        top: 10px !important;
+        right: 30px !important;
+        /* Move away from potential notch/camera */
+        opacity: 0.5;
+        /* Fade out slightly so it's less distracting */
+    }
+}
+
+/* MOBILE PORTRAIT OPTIMIZATION */
+@media screen and (orientation: portrait) and (max-width: 768px) {
+
+    /* Ensure the player covers everything */
+    #player-container {
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        /* Stack video and controls vertically */
+        align-items: center;
+        justify-content: flex-start;
+        /* Start from top */
+        padding-top: 15vh;
+        background: black;
+    }
+
+    .video-player-container {
+        width: 100% !important;
+        height: 56.25vw !important;
+        /* Fixed 16:9 height based on width */
+        max-height: 50vh;
+        background: black;
+        position: relative;
+        flex-shrink: 0;
+        /* Don't shrink video */
+    }
+
+    .video-player-container iframe {
+        height: 100% !important;
+        width: 100% !important;
+        display: block;
+    }
+
+    /* Dedicated Control Bar Area below video */
+    /* We style the close button to sit in this empty space */
+    .close-player {
+        position: static !important;
+        /* No longer absolute */
+        margin-top: 40px;
+        /* Space between video and button */
+        width: 60px;
+        height: 60px;
+        background: #333 !important;
+        /* Solid background */
+        border-radius: 50%;
+        border: none;
+        /* Remove border */
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* GLOBAL VIDEO PLAYER FIXES */
+#player-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: hidden !important;
+}
+
+#player-container video {
+    width: 100vw !important;
+    height: 100vh !important;
+    object-fit: cover !important;
+    display: block !important;
+    -webkit-tap-highlight-color: transparent;
+    /* This removes the blue box entirely while keeping it full-screen */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#player-container iframe {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: none !important;
+    display: block !important;
+    -webkit-tap-highlight-color: transparent;
+}/ *   N e x t   E p i s o d e   O v e r l a y   * /  
+ . n e x t - e p i s o d e - o v e r l a y   {  
+         p o s i t i o n :   a b s o l u t e ;  
+         b o t t o m :   4 0 p x ;  
+         r i g h t :   4 0 p x ;  
+         b a c k g r o u n d :   r g b a ( 2 0 ,   2 0 ,   2 0 ,   0 . 9 ) ;  
+         b a c k d r o p - f i l t e r :   b l u r ( 1 0 p x ) ;  
+         - w e b k i t - b a c k d r o p - f i l t e r :   b l u r ( 1 0 p x ) ;  
+         b o r d e r :   1 p x   s o l i d   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 1 ) ;  
+         b o r d e r - r a d i u s :   8 p x ;  
+         p a d d i n g :   2 0 p x ;  
+         w i d t h :   3 8 0 p x ;  
+         d i s p l a y :   f l e x ;  
+         f l e x - d i r e c t i o n :   c o l u m n ;  
+         g a p :   1 5 p x ;  
+         c o l o r :   w h i t e ;  
+         z - i n d e x :   1 0 0 0 0 ;  
+         o p a c i t y :   0 ;  
+         t r a n s f o r m :   t r a n s l a t e Y ( 2 0 p x ) ;  
+         t r a n s i t i o n :   o p a c i t y   0 . 4 s   e a s e ,   t r a n s f o r m   0 . 4 s   e a s e ;  
+         p o i n t e r - e v e n t s :   n o n e ;  
+         f o n t - f a m i l y :   ' N e t f l i x   S a n s ' ,   s a n s - s e r i f ;  
+         b o x - s h a d o w :   0   1 0 p x   4 0 p x   r g b a ( 0 ,   0 ,   0 ,   0 . 5 ) ;  
+ }  
+  
+ . n e x t - e p i s o d e - o v e r l a y . v i s i b l e   {  
+         o p a c i t y :   1 ;  
+         t r a n s f o r m :   t r a n s l a t e Y ( 0 ) ;  
+         p o i n t e r - e v e n t s :   a u t o ;  
+ }  
+  
+ . n e x t - e p - h e a d e r   {  
+         f o n t - s i z e :   0 . 9 r e m ;  
+         c o l o r :   # c f c f c f ;  
+         d i s p l a y :   f l e x ;  
+         j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n ;  
+         a l i g n - i t e m s :   c e n t e r ;  
+ }  
+  
+ . n e x t - e p - t i m e r   s t r o n g   {  
+         c o l o r :   # f f f ;  
+ }  
+  
+ . n e x t - e p - c o n t e n t   {  
+         d i s p l a y :   f l e x ;  
+         g a p :   1 5 p x ;  
+ }  
+  
+ . n e x t - e p - t h u m b - w r a p p e r   {  
+         p o s i t i o n :   r e l a t i v e ;  
+         w i d t h :   1 4 0 p x ;  
+         h e i g h t :   7 9 p x ;  
+         f l e x - s h r i n k :   0 ;  
+ }  
+  
+ . n e x t - e p - t h u m b   {  
+         w i d t h :   1 0 0 % ;  
+         h e i g h t :   1 0 0 % ;  
+         o b j e c t - f i t :   c o v e r ;  
+         b o r d e r - r a d i u s :   4 p x ;  
+         b a c k g r o u n d :   # 3 3 3 ;  
+ }  
+  
+ . n e x t - e p - p l a y - i c o n   {  
+         p o s i t i o n :   a b s o l u t e ;  
+         t o p :   5 0 % ;  
+         l e f t :   5 0 % ;  
+         t r a n s f o r m :   t r a n s l a t e ( - 5 0 % ,   - 5 0 % ) ;  
+         b a c k g r o u n d :   r g b a ( 0 ,   0 ,   0 ,   0 . 5 ) ;  
+         b o r d e r - r a d i u s :   5 0 % ;  
+         p a d d i n g :   8 p x ;  
+         d i s p l a y :   f l e x ;  
+         a l i g n - i t e m s :   c e n t e r ;  
+         j u s t i f y - c o n t e n t :   c e n t e r ;  
+ }  
+  
+ . n e x t - e p - i n f o   {  
+         d i s p l a y :   f l e x ;  
+         f l e x - d i r e c t i o n :   c o l u m n ;  
+         j u s t i f y - c o n t e n t :   c e n t e r ;  
+         o v e r f l o w :   h i d d e n ;  
+         f l e x - g r o w :   1 ;  
+ }  
+  
+ . n e x t - e p - t i t l e   {  
+         f o n t - s i z e :   1 r e m ;  
+         f o n t - w e i g h t :   b o l d ;  
+         c o l o r :   w h i t e ;  
+         m a r g i n - b o t t o m :   4 p x ;  
+         d i s p l a y :   - w e b k i t - b o x ;  
+         - w e b k i t - l i n e - c l a m p :   2 ;  
+         - w e b k i t - b o x - o r i e n t :   v e r t i c a l ;  
+         o v e r f l o w :   h i d d e n ;  
+ }  
+  
+ . n e x t - e p - m e t a   {  
+         f o n t - s i z e :   0 . 8 5 r e m ;  
+         c o l o r :   # a a a ;  
+ }  
+  
+ . n e x t - e p - a c t i o n s   {  
+         d i s p l a y :   f l e x ;  
+         g a p :   1 0 p x ;  
+         m a r g i n - t o p :   5 p x ;  
+ }  
+  
+ . n e x t - e p - b t n   {  
+         f l e x :   1 ;  
+         p a d d i n g :   1 0 p x ;  
+         b o r d e r :   n o n e ;  
+         b o r d e r - r a d i u s :   4 p x ;  
+         f o n t - w e i g h t :   6 0 0 ;  
+         c u r s o r :   p o i n t e r ;  
+         f o n t - s i z e :   0 . 9 r e m ;  
+         t r a n s i t i o n :   a l l   0 . 2 s ;  
+ }  
+  
+ . n e x t - e p - p l a y   {  
+         b a c k g r o u n d :   w h i t e ;  
+         c o l o r :   b l a c k ;  
+ }  
+  
+ . n e x t - e p - p l a y : h o v e r   {  
+         b a c k g r o u n d :   # e 6 e 6 e 6 ;  
+         t r a n s f o r m :   s c a l e ( 1 . 0 2 ) ;  
+ }  
+  
+ . n e x t - e p - c a n c e l   {  
+         b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 1 5 ) ;  
+         c o l o r :   w h i t e ;  
+ }  
+  
+ . n e x t - e p - c a n c e l : h o v e r   {  
+         b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 2 5 ) ;  
+ }  
+  
+ / *   P r o g r e s s   b a r   f o r   t i m e r ?   O p t i o n a l   b u t   c o o l   * /  
+ . n e x t - e p - p r o g r e s s   {  
+         p o s i t i o n :   a b s o l u t e ;  
+         b o t t o m :   0 ;  
+         l e f t :   0 ;  
+         h e i g h t :   3 p x ;  
+         b a c k g r o u n d :   v a r ( - - n e t f l i x - r e d ) ;  
+         w i d t h :   1 0 0 % ;  
+         t r a n s f o r m - o r i g i n :   l e f t ;  
+         t r a n s i t i o n :   t r a n s f o r m   1 s   l i n e a r ;  
+         b o r d e r - b o t t o m - l e f t - r a d i u s :   8 p x ;  
+         b o r d e r - b o t t o m - r i g h t - r a d i u s :   8 p x ;  
+ }  
+ 

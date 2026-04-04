@@ -88,6 +88,10 @@ const app = {
         showLanding: () => {
             document.getElementById('landing-view').classList.remove('hidden');
             document.getElementById('app-view').classList.add('hidden');
+
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'none';
+
             lucide.createIcons();
         },
         showApp: async () => {
@@ -131,9 +135,25 @@ const app = {
             app.state.customContent = Array.from(allContentMap.values());
 
             // Fetch Data
+
+            // 1. IMMEDIATE RENDER: Show what we have (Custom Content) and Hide Loader
+            app.router.handleHash();
+            window.addEventListener('hashchange', app.router.handleHash);
+
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'none'; // Instant hide
+
+            // 2. BACKGROUND FETCH: Get TMDB data
             await app.services.loadContent();
 
-            // FORCE SYNC: Ensure hardcoded links are written to LocalStorage so they "stick"
+            // 3. RE-RENDER: Show the new data
+            // Only re-render if we are still on the same view that needs it
+            const currentHash = window.location.hash.substring(1) || 'home';
+            if (['home', 'tv', 'movies', 'new'].includes(currentHash)) {
+                app.router.handleHash();
+            }
+
+            // FORCE SYNC (Keep existing logic)
             const currentLocal = JSON.parse(localStorage.getItem('netflix_custom_content') || '[]');
             let changed = false;
 
@@ -200,17 +220,19 @@ const app = {
                 e.stopPropagation();
                 dropdown.classList.toggle('hidden');
                 // Rotate chevron
-                if (!dropdown.classList.contains('hidden')) {
-                    chevron.style.transform = 'rotate(180deg)';
-                } else {
-                    chevron.style.transform = 'rotate(0deg)';
+                if (chevron) {
+                    if (!dropdown.classList.contains('hidden')) {
+                        chevron.style.transform = 'rotate(180deg)';
+                    } else {
+                        chevron.style.transform = 'rotate(0deg)';
+                    }
                 }
             });
 
             document.addEventListener('click', (e) => {
-                if (!profileMenu.contains(e.target)) {
+                if (profileMenu && !profileMenu.contains(e.target)) {
                     dropdown.classList.add('hidden');
-                    chevron.style.transform = 'rotate(0deg)';
+                    if (chevron) chevron.style.transform = 'rotate(0deg)';
                 }
             });
 
@@ -223,9 +245,7 @@ const app = {
                 }
             });
 
-            // Initial Route
-            app.router.handleHash();
-            window.addEventListener('hashchange', app.router.handleHash);
+            // Initial Route handled earlier for performance
 
             lucide.createIcons();
         }
@@ -427,7 +447,17 @@ const app = {
             let playerHtml;
             if (isDirectFile) {
                 playerHtml = `
-                    <video controls autoplay style="width: 100%; height: 100%;" crossorigin="anonymous">
+                    <div id="video-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10; flex-direction:column; align-items:center; justify-content:center;">
+                        <h2 style="color:white; margin-bottom:20px;">Finished</h2>
+                        <button onclick="document.querySelector('video').play(); document.getElementById('video-overlay').style.display='none';" 
+                            style="padding:10px 20px; font-size:1.2rem; background:white; color:black; border:none; border-radius:4px; cursor:pointer;">
+                            Replay
+                        </button>
+                    </div>
+                    <video controls autoplay style="width: 100%; height: 100%;" crossorigin="anonymous" 
+                        onended="document.getElementById('video-overlay').style.display='flex';" 
+                        onplay="document.getElementById('video-overlay').style.display='none';"
+                        onerror="console.error('Video Error'); alert('Video Playback Error. decoding failed.');">
                         <source src="${videoUrl}" type="video/mp4">
                         ${captionUrl ? `<track label="English" kind="subtitles" srclang="en" src="${captionUrl}" default>` : ''}
                         Your browser does not support the video tag.
@@ -566,27 +596,67 @@ const app = {
             } else {
                 let iframeUrl = videoUrl;
                 // Clean Google Drive URLs
-                if (iframeUrl.includes('drive.google.com')) {
-                    // Strip query parameters (like ?usp=drive_link)
-                    iframeUrl = iframeUrl.split('?')[0];
-                    // Ensure preview mode
+                // Clean Google Drive URLs
+                const isDrive = iframeUrl.includes('drive.google.com');
+
+                if (isDrive) {
                     if (iframeUrl.includes('/view')) {
                         iframeUrl = iframeUrl.replace('/view', '/preview');
                     }
-                    // aggressive HD force and autoplay attempt
-                    // aggressive HD force, autoplay, and attempt to force captions
-                    iframeUrl += '?mime=video/mp4&vq=hd1080&autoplay=1&cc_load_policy=1&cc_lang_pref=en&c=1';
+
+                    // broader detection for mobile/tablet to include iPads
+                    const isMobileApp = (window.innerWidth < 1025) || (navigator.maxTouchPoints > 0);
+
+                    if (isMobileApp) {
+                        const separator = iframeUrl.includes('?') ? '&' : '?';
+                        iframeUrl += separator + 'autoplay=1&vq=hd1080';
+                    } else {
+                        const separator = iframeUrl.includes('?') ? '&' : '?';
+                        iframeUrl += separator + 'autoplay=1&vq=hd1080&cc_load_policy=1';
+                    }
                 }
 
-                modal.innerHTML = `
-                    <div class="video-player-container" style="width: 100%; height: 100%; background: black; position: relative; display: flex; align-items: center; justify-content: center;">
+                if (isDrive) {
+                    modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
-                            <i data-lucide="x" width="40" height="40"></i>
+                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.5); border-radius: 50%; padding: 10px; border: none; color: white; cursor: pointer; pointer-events: auto;">
+                            <i data-lucide="x" width="30" height="30"></i>
                         </button>
-                        <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" referrerpolicy="no-referrer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>
-                    </div>
-                `;
+                        <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
+                            <iframe src="${iframeUrl}" 
+                                frameborder="0" 
+                                referrerpolicy="no-referrer" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                playsinline 
+                                allowfullscreen 
+                                style="position: absolute; top: 50%; left: 50%; width: 100vw; height: 100vh; transform: translate(-50%, -50%); -webkit-tap-highlight-color: transparent; border: none; pointer-events: auto;">
+                            </iframe>
+                        </div>
+                    `;
+                } else {
+                    // Native Video Support (MP4, etc.)
+                    modal.innerHTML = `
+                         <button class="close-player" onclick="app.handlers.closePlayer()" 
+                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.5); border-radius: 50%; padding: 10px; border: none; color: white; cursor: pointer; pointer-events: auto;">
+                            <i data-lucide="x" width="30" height="30"></i>
+                         </button>
+                         <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
+                            <div id="video-overlay-fallback" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:3001; flex-direction:column; align-items:center; justify-content:center;">
+                                <h2 style="color:white; margin-bottom:20px;">Finished</h2>
+                                <button onclick="document.querySelector('video').play(); document.getElementById('video-overlay-fallback').style.display='none';" 
+                                    style="padding:10px 20px; font-size:1.2rem; background:white; color:black; border:none; border-radius:4px; cursor:pointer;">
+                                    Replay
+                                </button>
+                            </div>
+                            <video src="${iframeUrl}" controls autoplay playsinline
+                                onended="document.getElementById('video-overlay-fallback').style.display='flex';"
+                                onplay="document.getElementById('video-overlay-fallback').style.display='none';"
+                                onerror="console.error('Fallback Video Error'); alert('Playback Error: Stream failed or format not supported.');"
+                                style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%; width: auto; height: auto; transform: translate(-50%, -50%); object-fit: cover;">
+                            </video>
+                         </div>
+                    `;
+                }
                 if (window.lucide) window.lucide.createIcons();
             }
         },
@@ -1123,94 +1193,164 @@ const app = {
             // Clear existing content
             container.innerHTML = '';
 
-            // Hero Section - PRIORITIZE CUSTOM CONTENT
-            // Use the first custom item if available, otherwise fallback to TMDB or Mock
-            const heroItem = app.state.customContent.length > 0 ? app.state.customContent[0] : (app.state.tmdbContent.trending[0] || app.services.getMockHero());
+            // Hero Section - SLIDESHOW LOGIC
+            // Get potential hero items: ALL Custom content
+            // We filter for items that are explicitly custom to ensure we don't pick up random TMDB fills if any exist there.
+            const customHeroes = app.state.customContent;
+            let heroItems = customHeroes.length > 0 ? customHeroes : [app.state.tmdbContent.trending[0]];
 
-            let heroImg = 'https://via.placeholder.com/1920x1080?text=No+Hero+Image';
+            // Priority ordering: Emily first, Friends second, then random
+            const emilyItem = heroItems.find(i => i.id === 'emily_in_paris' || (i.title && i.title.includes('Emily in Paris')));
+            const friendsItem = heroItems.find(i => i.title === 'Friends' || i.title === 'FRIENDS');
 
-            // Prioritize backdrop
-            if (heroItem.backdrop_path) {
-                if (heroItem.backdrop_path.startsWith('http')) {
-                    heroImg = heroItem.backdrop_path;
-                } else {
-                    heroImg = app.state.config.backdropBaseUrl + heroItem.backdrop_path;
-                }
-            } else if (heroItem.poster_path) {
-                if (heroItem.poster_path.startsWith('http')) {
-                    heroImg = heroItem.poster_path;
-                } else {
-                    heroImg = app.state.config.backdropBaseUrl + heroItem.poster_path;
-                }
+            // Remove pinned items from the pool
+            let otherItems = heroItems.filter(i => i !== emilyItem && i !== friendsItem);
+
+            // Shuffle the rest
+            otherItems.sort(() => Math.random() - 0.5);
+
+            // Reconstruct array with explicit order
+            heroItems = [];
+            if (emilyItem) heroItems.push(emilyItem);
+            if (friendsItem) heroItems.push(friendsItem);
+            heroItems = [...heroItems, ...otherItems];
+
+            // If only one custom item or no custom items, fall back to mixed content
+            if (heroItems.length === 0) heroItems = [app.services.getMockHero()];
+            if (heroItems.length === 1 && app.state.tmdbContent.trending.length > 0) {
+                heroItems.push(app.state.tmdbContent.trending[0]);
             }
 
-            const hero = document.createElement('div');
-            hero.className = 'hero';
-            hero.style.backgroundImage = `url('${heroImg}')`;
-            hero.style.cursor = 'pointer'; // Make it look clickable
+            // Initial render
+            let currentHeroIndex = 0;
+            const heroContainer = document.createElement('div');
+            heroContainer.className = 'hero';
+            heroContainer.style.transition = 'background-image 1s ease-in-out';
+            container.appendChild(heroContainer);
 
-            // Expose hero item globally for button click (legacy)
-            window.currentHeroItem = heroItem;
+            function renderHero(item) {
+                if (!item) return;
 
-            // Disable full slide click, enable interactive buttons
-            // hero.onclick = ... (removed)
-            hero.style.cursor = 'default';
+                let heroImg = 'https://via.placeholder.com/1920x1080?text=No+Hero+Image';
+                if (item.backdrop_path) {
+                    heroImg = item.backdrop_path.startsWith('http') ? item.backdrop_path : app.state.config.backdropBaseUrl + item.backdrop_path;
+                } else if (item.poster_path) {
+                    heroImg = item.poster_path.startsWith('http') ? item.poster_path : app.state.config.backdropBaseUrl + item.poster_path;
+                }
 
-            hero.innerHTML = `
-                <div class="hero-overlay" style="background: linear-gradient(to top, #141414 10%, transparent 90%);"></div>
-                <!-- Left Content -->
-                <div class="hero-content" style="max-width: 600px; padding-bottom: 100px;">
-                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                        <span style="color: #E50914; font-weight: 800; font-size: 2.5rem; margin-right: 2px;">T</span>
-                        <span style="color: #ddd; font-weight: 500; letter-spacing: 5px; font-size: 0.9rem; margin-top: 5px;">SERIES</span>
-                    </div>
+                heroContainer.style.backgroundImage = `url('${heroImg}')`;
+
+                // Fix for Emily in Paris header cropping
+                if (item.id === 'emily_in_paris' || (item.title && item.title.includes('Emily in Paris'))) {
+                    heroContainer.style.backgroundPosition = 'center 20%';
+                } else if (item.title && item.title.includes('10 Things')) {
+                    // Similar fix for 10 Things I Hate About You to show heads
+                    heroContainer.style.backgroundPosition = 'center 20%';
+                } else {
+                    heroContainer.style.backgroundPosition = 'center center';
+                }
+
+                heroContainer.innerHTML = `
+                    <div class="hero-overlay" style="background: linear-gradient(to top, #141414 10%, transparent 90%);"></div>
                     
-                    <h1 class="hero-title" style="font-size: 4rem; line-height: 1.0; margin-bottom: 20px; text-transform: uppercase;">
-                        ${heroItem.title || heroItem.name}
-                    </h1>
-                    
-                    <p class="hero-desc" style="font-size: 1.4rem; font-weight: 500; font-style: italic; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 30px; line-height: 1.2;">
-                        ${(heroItem.overview || heroItem.description || '').substring(0, 100)}...
-                    </p>
-                    
-                    <div class="hero-buttons" style="display: flex; gap: 15px;">
-                        <button class="btn" onclick="app.handlers.playHero()"
-                            style="background: white; color: black; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <i data-lucide="play" fill="black"></i> Play
-                        </button>
-                        <button class="btn" onclick="app.router.openDetails(window.currentHeroItem)"
-                            style="background: rgba(109, 109, 110, 0.7); color: white; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <i data-lucide="info"></i> More Info
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Right Bottom Icons -->
-                <div style="position: absolute; right: 0; bottom: 30%; display: flex; align-items: center; gap: 10px;">
-                    <button style="background: transparent; border: 1px solid rgba(255,255,255,0.5); color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
-                        <i data-lucide="volume-x"></i>
+                    <!-- Left Arrow -->
+                    <button class="slider-arrow left" onclick="app.handlers.prevHero()" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
+                        <i data-lucide="chevron-left" width="40" height="40"></i>
                     </button>
-                    <div style="background: rgba(51, 51, 51, 0.6); border-left: 3px solid #dcdcdc; padding: 5px 15px 5px 10px; color: white; font-weight: bold; font-size: 1.1rem;">
-                        16+
-                    </div>
-                </div>
-            `;
-            container.appendChild(hero);
-            lucide.createIcons();
 
-            // API Config Prompt if empty
-            if (!app.state.config.apiKey) {
-                const notice = document.createElement('div');
-                notice.style.padding = '20px 4%';
-                notice.style.background = '#ffa00a20';
-                notice.style.borderLeft = '4px solid #ffa00a';
-                notice.innerHTML = `<p><strong>Pro Tip:</strong> To see real movies, add your TMDB API Key in <a href="#settings" style="color:white; text-decoration:underline;">Settings</a>. Currently showing Sample Data.</p>`;
-                container.appendChild(notice);
+                    <!-- Right Arrow -->
+                    <button class="slider-arrow right" onclick="app.handlers.nextHero()" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
+                        <i data-lucide="chevron-right" width="40" height="40"></i>
+                    </button>
+
+                    <div class="hero-content" style="max-width: 600px; padding-bottom: 100px; animation: fadeIn 0.5s;">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span style="color: #E50914; font-weight: 800; font-size: 2.5rem; margin-right: 2px;">T</span>
+                            <span style="color: #ddd; font-weight: 500; letter-spacing: 5px; font-size: 0.9rem; margin-top: 5px;">SERIES</span>
+                        </div>
+                        
+                        <h1 class="hero-title" style="font-size: 4rem; line-height: 1.0; margin-bottom: 20px; text-transform: uppercase;">
+                            ${item.title || item.name}
+                        </h1>
+                        
+                        <p class="hero-desc" style="font-size: 1.4rem; font-weight: 500; font-style: italic; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 30px; line-height: 1.2;">
+                            ${(item.overview || item.description || '').substring(0, 150)}...
+                        </p>
+                        
+                        <div class="hero-buttons" style="display: flex; gap: 15px;">
+                            <button id="hero-play" class="btn" onclick="app.handlers.playHero()"
+                                style="background: white; color: black; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <i data-lucide="play" fill="black"></i> Play
+                            </button>
+                            <button id="hero-info" class="btn" 
+                                style="background: rgba(109, 109, 110, 0.7); color: white; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <i data-lucide="info"></i> More Info
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Pagination Dots -->
+                    <div style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
+                        ${heroItems.map((_, idx) => `
+                            <div onclick="app.handlers.setHero(${idx})" style="width: 10px; height: 10px; border-radius: 50%; background: ${idx === currentHeroIndex ? 'white' : 'rgba(255,255,255,0.5)'}; cursor: pointer; transition: background 0.3s;"></div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Show arrows on hover -->
+                    <style>
+                        .hero:hover .slider-arrow { opacity: 1 !important; }
+                    </style>
+                `;
+
+                // Re-bind listeners because innerHTML wiped them logic
+                window.currentHeroItem = item;
+                const infoBtn = heroContainer.querySelector('#hero-info');
+                if (infoBtn) infoBtn.onclick = () => app.router.openDetails(item);
+
+                lucide.createIcons();
             }
+
+            // Define Handlers for Navigation
+            app.handlers.nextHero = () => {
+                currentHeroIndex = (currentHeroIndex + 1) % heroItems.length;
+                renderHero(heroItems[currentHeroIndex]);
+                resetInterval();
+            };
+            app.handlers.prevHero = () => {
+                currentHeroIndex = (currentHeroIndex - 1 + heroItems.length) % heroItems.length;
+                renderHero(heroItems[currentHeroIndex]);
+                resetInterval();
+            };
+            app.handlers.setHero = (index) => {
+                currentHeroIndex = index;
+                renderHero(heroItems[currentHeroIndex]);
+                resetInterval();
+            };
+
+            function resetInterval() {
+                if (window.heroInterval) clearInterval(window.heroInterval);
+                window.heroInterval = setInterval(() => {
+                    currentHeroIndex = (currentHeroIndex + 1) % heroItems.length;
+                    renderHero(heroItems[currentHeroIndex]);
+                }, 6000);
+            }
+
+            renderHero(heroItems[0]);
+
+            // Start Slideshow Interval
+            resetInterval();
 
             // Rows
             if (app.state.customContent.length > 0) {
-                app.components.createRow(container, 'Top Searches', app.state.customContent);
+                // Sort so Friends is always first
+                const sortedContent = [...app.state.customContent].sort((a, b) => {
+                    const isAFriends = a.title && (a.title === 'Friends' || a.title === 'FRIENDS');
+                    const isBFriends = b.title && (b.title === 'Friends' || b.title === 'FRIENDS');
+                    if (isAFriends) return -1;
+                    if (isBFriends) return 1;
+                    return 0;
+                });
+                app.components.createRow(container, 'Top Searches', sortedContent);
             }
             app.components.createRow(container, 'Top Searches', app.state.tmdbContent.trending);
             app.components.createRow(container, 'Your Next Watch', app.state.tmdbContent.topRated);
@@ -1636,44 +1776,61 @@ const app = {
         },
 
         tv: (container) => {
-            const customShows = app.state.customContent;
+            // Filter only TV Shows (items that are NOT movies)
+            const customShows = app.state.customContent.filter(i => i.type !== 'movie');
             const tmdb = app.state.tmdbContent;
 
-            // No Hero, just nice clean lists
             let html = `
-                                                                                        <div class="content-rows" style="padding-top: 200px; padding-bottom: 50px; position: relative; z-index: 10;">
-                                                                                            `;
+                <div class="content-rows" style="padding-top: 100px; padding-bottom: 50px; position: relative; z-index: 10;">
+            `;
 
-            // Custom Content Row First if exists
             if (customShows && customShows.length > 0) {
-                html += `<div class="row-container" id="row-custom-tv" style="margin-bottom: 50px;"></div>`;
+                html += `<div class="row-container" id="row-custom-tv" style="margin-bottom: 40px;"></div>`;
             }
 
-            html += `
-                                                                                            <div class="row-container" id="row-popular"></div>
-                                                                                        </div>
-                                                                                        `;
+            html += `<div class="row-container" id="row-popular-tv"></div></div>`;
             container.innerHTML = html;
             lucide.createIcons();
 
-            // Render Rows
             if (customShows && customShows.length > 0) {
-                app.components.createRow(document.getElementById('row-custom-tv'), "My Custom Uploads", customShows);
-                // Fix negative margin issue from global CSS
-                const customRow = document.getElementById('row-custom-tv').querySelector('.row');
-                if (customRow) customRow.style.marginTop = '0';
+                app.components.createRow(document.getElementById('row-custom-tv'), "My Custom TV Shows", customShows);
+                const r = document.getElementById('row-custom-tv').querySelector('.row');
+                if (r) r.style.marginTop = '0';
             }
-            app.components.createRow(document.getElementById('row-popular'), "Popular on Netflix", tmdb.trending);
-
-            // Fix negative margin issue for Popular row as well
-            const popRow = document.getElementById('row-popular').querySelector('.row');
-            if (popRow) {
-                popRow.style.marginTop = '0';
-                // Add the requested spacing from "My Custom Uploads"
-                popRow.style.marginTop = '50px';
-            }
+            // Use TMDB trending as filler for now
+            app.components.createRow(document.getElementById('row-popular-tv'), "Trending TV", tmdb.trending);
+            const popRow = document.getElementById('row-popular-tv').querySelector('.row');
+            if (popRow) popRow.style.marginTop = '0';
         },
-        movies: (c) => { c.innerHTML = '<div style="padding: 100px 4%; text-align: center;"><h1>Movies</h1><p>Coming Soon</p></div>'; }
+
+        movies: (container) => {
+            // Filter only Movies
+            const customMovies = app.state.customContent.filter(i => i.type === 'movie');
+            const tmdb = app.state.tmdbContent;
+
+            let html = `
+                <div class="content-rows" style="padding-top: 100px; padding-bottom: 50px; position: relative; z-index: 10;">
+             `;
+
+            if (customMovies && customMovies.length > 0) {
+                html += `<div class="row-container" id="row-custom-movies" style="margin-bottom: 40px;"></div>`;
+            }
+
+            html += `<div class="row-container" id="row-popular-movies"></div></div>`;
+            container.innerHTML = html;
+            lucide.createIcons();
+
+            if (customMovies && customMovies.length > 0) {
+                app.components.createRow(document.getElementById('row-custom-movies'), "My Custom Movies", customMovies);
+                const r = document.getElementById('row-custom-movies').querySelector('.row');
+                if (r) r.style.marginTop = '0';
+            }
+
+            // Use TMDB top rated or action as filler
+            app.components.createRow(document.getElementById('row-popular-movies'), "Popular Movies", tmdb.topRated);
+            const popMovRow = document.getElementById('row-popular-movies').querySelector('.row');
+            if (popMovRow) popMovRow.style.marginTop = '0';
+        }
     },
 
     components: {
@@ -1728,9 +1885,15 @@ const app = {
                     imgPath = item.poster_path.startsWith('http') ? item.poster_path : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
                 }
 
-                const isTop10 = Math.random() > 0.8;
-                const isNewSeason = Math.random() > 0.8;
-                const isOriginal = Math.random() > 0.7;
+                const isTop10 = false; // Removed as per user request
+                let isNewSeason = Math.random() > 0.8;
+
+                // Disable New Season for movies
+                if (item.type === 'movie' || (item.title && item.title.includes('10 Things'))) {
+                    isNewSeason = false;
+                }
+
+                const isOriginal = false; // Removed 'N' logo as per user request
 
                 return `
                     <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')">
@@ -1759,7 +1922,7 @@ const app = {
                 // 1. Explicit Episode Image
                 if (ep.still_path || ep.img) {
                     imgUrl = ep.still_path || ep.img;
-                    if (imgUrl.startsWith('/')) imgUrl = (app.state.config.backdropBaseUrl || 'https://image.tmdb.org/t/p/original') + imgUrl;
+                    if (imgUrl.startsWith('/') && !imgUrl.startsWith('http')) imgUrl = (app.state.config.backdropBaseUrl || 'https://image.tmdb.org/t/p/original') + imgUrl;
                 }
                 // 2. Google Drive Auto-Thumbnail (Extract ID)
                 else if (ep.video_url && ep.video_url.includes('drive.google.com')) {
@@ -1776,18 +1939,18 @@ const app = {
                 const epId = 'ep-dur-' + item.id + '-' + index;
 
                 return `
-                                                                                <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index})">
-                                                                                    <div class="episode-number">${filteredIndex + 1}</div>
-                                                                                    <div class="episode-thumbnail" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
-                                                                                    <div class="episode-info">
-                                                                                        <div style="display:flex; justify-content:space-between; width:100%;">
-                                                                                            <div class="episode-title">${ep.title || 'Episode ' + (index + 1)}</div>
-                                                                                            <div id="${epId}" style="font-size: 0.9rem; color: #777;">${ep.runtime ? ep.runtime + 'm' : '--m'}</div>
-                                                                                        </div>
-                                                                                        <div class="episode-desc">${ep.overview || 'No description available for this episode.'}</div>
-                                                                                    </div>
-                                                                                </div>
-                                                                                `;
+                    <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index})">
+                        <div class="episode-number">${filteredIndex + 1}</div>
+                        <div class="episode-thumbnail" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
+                        <div class="episode-info">
+                            <div style="display:flex; justify-content:space-between; width:100%;">
+                                <div class="episode-title">${ep.title || 'Episode ' + (index + 1)}</div>
+                                <div id="${epId}" style="font-size: 0.9rem; color: #777;">${ep.runtime ? ep.runtime + 'm' : '--m'}</div>
+                            </div>
+                            <div class="episode-desc">${ep.overview || 'No description available for this episode.'}</div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
     },
