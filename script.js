@@ -1817,7 +1817,6 @@ const app = {
                                     <div style="padding: 12px;">
                                         <h3 style="font-size: 1rem; color: #fff; margin: 0 0 6px 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${item.title || item.name}</h3>
                                         <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; color: #aaa;">
-                                            <span style="color: #00A8E1; font-weight: bold;">prime</span>
                                             <span>${item.release_date ? item.release_date.split('-')[0] : '2024'}</span>
                                             <span style="border: 1px solid #555; padding: 1px 4px; border-radius: 2px; font-size: 0.6rem;">HD</span>
                                         </div>
