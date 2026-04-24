@@ -1,5 +1,20 @@
 window.NETFLIX_INITIAL_CONTENT = [
     {
+        "id": "movie_1582770",
+        "title": "Dhurandhar The Revenge",
+        "original_title": "Dhurandhar: The Revenge",
+        "description": "As rival gangs, corrupt officials and a ruthless Major Iqbal close in, Hamza's mission for his country spirals into a bloody personal war where the line between patriot and monster disappears in the streets of Lyari.",
+        "genre": "Action, Crime, Thriller",
+        "poster_path": "https://image.tmdb.org/t/p/original/ov8vrRLZGoXHpYjSY9Vpv1tHJX7.jpg",
+        "backdrop_path": "https://image.tmdb.org/t/p/original/owQeDouUZ6wI6f1aTOYEFd511zn.jpg",
+        "release_date": "2026-03-18",
+        "runtime": 229,
+        "vote_average": 7.697,
+        "is_custom": true,
+        "type": "movie",
+        "video_url": "https://drive.google.com/file/d/1GeZzjWvqs9Yu7vjzDEKNaILhX1cnoqsC/preview"
+    },
+    {
         "id": "httyd_1",
         "title": "How To Train Your Dragon",
         "original_title": "How To Train Your Dragon",
