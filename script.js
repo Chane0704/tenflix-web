@@ -1760,7 +1760,7 @@ const app = {
             });
 
             if (results.length === 0) {
-                container.innerHTML = \`<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "\${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>\`;
+                container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
                 return;
             }
             container.innerHTML = `
