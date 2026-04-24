@@ -1763,10 +1763,29 @@ const app = {
                 container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
                 return;
             }
-            // Sort custom content to the top
+            // Sort prioritizing title matches first, then custom content
             results.sort((a, b) => {
+                const aTitle = (a.title || a.name || '').toLowerCase();
+                const bTitle = (b.title || b.name || '').toLowerCase();
+                
+                const aExact = aTitle === q;
+                const bExact = bTitle === q;
+                if (aExact && !bExact) return -1;
+                if (!aExact && bExact) return 1;
+
+                const aStarts = aTitle.startsWith(q);
+                const bStarts = bTitle.startsWith(q);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+
+                const aIncludes = aTitle.includes(q);
+                const bIncludes = bTitle.includes(q);
+                if (aIncludes && !bIncludes) return -1;
+                if (!aIncludes && bIncludes) return 1;
+
                 if (a.is_custom && !b.is_custom) return -1;
                 if (!a.is_custom && b.is_custom) return 1;
+                
                 return 0;
             });
 
@@ -1792,7 +1811,7 @@ const app = {
                                     <div style="position: relative;">
                                         <img src="${fullImg}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;">
                                         <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; color: white;">
-                                            <i data-lucide="play" style="width: 10px; height: 10px; display: inline-block;"></i> Included
+                                            ${item.is_custom ? '<i data-lucide="play" style="width: 10px; height: 10px; display: inline-block;"></i> Included' : '<i data-lucide="calendar" style="width: 10px; height: 10px; display: inline-block;"></i> Coming Soon'}
                                         </div>
                                     </div>
                                     <div style="padding: 12px;">
