@@ -211,6 +211,18 @@ const app = {
                 window.location.hash = 'home';
             });
 
+            // Force hash handling when clicking nav links to the same hash
+            document.querySelectorAll('.nav-links a, .logo').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const targetHash = link.getAttribute('href') || '#home';
+                    const currentHash = window.location.hash || '#home';
+                    if (currentHash === targetHash) {
+                        // Already on this hash, hashchange won't fire. Force a re-render.
+                        setTimeout(() => app.router.handleHash(), 10);
+                    }
+                });
+            });
+
             // Profile Dropdown
             const profileMenu = document.querySelector('.profile-menu');
             const dropdown = document.getElementById('profile-dropdown');
