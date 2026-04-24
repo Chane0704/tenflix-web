@@ -700,16 +700,20 @@ const app = {
                                     <span style="border: 1px solid #777; padding: 0 4px; font-size: 0.7rem; border-radius: 2px;">HD</span>
                                 </div>
                                 
-                                <div class="modal-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <div class="modal-actions" style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
                                     <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})">
                                         <i data-lucide="play" fill="black"></i> Play
                                     </button>
+                                    
+                                    <a href="https://drive.google.com/drive/folders/1jx3Drfqd9dDaElb0AlR3ocsRKwyiIP4b?usp=drive_link" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; color: white;">
+                                        <i data-lucide="download"></i> Download
+                                    </a>
                                     
                                     ${isCustom ? `
                                         <button class="btn btn-secondary" onclick="app.handlers.editItem('${item.id}')">
                                             <i data-lucide="edit-2"></i> Edit
                                         </button>
-                                        <button class="btn btn-secondary" style="background-color: #E50914; border:none;" onclick="app.handlers.deleteItem('${item.id}')">
+                                        <button class="btn btn-secondary" style="background-color: #E50914; border:none; margin-left: auto;" onclick="app.handlers.deleteItem('${item.id}')">
                                             <i data-lucide="trash-2"></i> Delete
                                         </button>
                                     ` : ''}
