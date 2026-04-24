@@ -1744,13 +1744,25 @@ const app = {
                 ...app.state.customContent
             ];
 
-            // Allow duplicates for visual fullness if array is small
-            let results = allContent;
-            // If we had real search, we'd filter: results = allContent.filter(i => i.title.toLowerCase().includes(query.toLowerCase()));
+            const q = query.toLowerCase();
+            let results = allContent.filter(i => {
+                const title = (i.title || i.name || '').toLowerCase();
+                const desc = (i.description || i.overview || '').toLowerCase();
+                return title.includes(q) || desc.includes(q);
+            });
+            
+            // Remove duplicates by ID just in case
+            const seen = new Set();
+            results = results.filter(i => {
+                if(seen.has(i.id)) return false;
+                seen.add(i.id);
+                return true;
+            });
 
-            // For the visual "WOW" factor request, let's just show a grid of cool stuff
-            if (results.length < 10) results = [...results, ...results];
-
+            if (results.length === 0) {
+                container.innerHTML = \`<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "\${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>\`;
+                return;
+            }
             container.innerHTML = `
                                                                                         <div class="search-results-container">
                                                                                             <div class="related-titles-bar">
