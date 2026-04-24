@@ -1356,7 +1356,7 @@ const app = {
                 });
                 app.components.createRow(container, 'Top Searches', sortedContent);
             }
-            app.components.createRow(container, 'Top Searches', app.state.tmdbContent.trending);
+            app.components.createRow(container, 'Coming Soon', app.state.tmdbContent.trending);
             app.components.createRow(container, 'Your Next Watch', app.state.tmdbContent.topRated);
             app.components.createRow(container, 'Retro TV', app.state.tmdbContent.action);
             app.components.createRow(container, 'Nostalgic \'90s', app.state.tmdbContent.comedy);
