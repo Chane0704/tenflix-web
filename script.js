@@ -313,6 +313,14 @@ const app = {
             }
             window.scrollTo(0, 0);
 
+            // Clear search input on navigation
+            const searchInput = document.getElementById('search-input');
+            if (searchInput && searchInput.value) {
+                searchInput.value = '';
+                // Optional: remove active class to collapse it if desired
+                // searchInput.classList.remove('active');
+            }
+
             // Update Active Link
             document.querySelectorAll('.nav-links a').forEach(link => {
                 link.classList.remove('active');
