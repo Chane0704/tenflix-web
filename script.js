@@ -1763,31 +1763,52 @@ const app = {
                 container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
                 return;
             }
+            // Sort custom content to the top
+            results.sort((a, b) => {
+                if (a.is_custom && !b.is_custom) return -1;
+                if (!a.is_custom && b.is_custom) return 1;
+                return 0;
+            });
+
             container.innerHTML = `
-                                                                                        <div class="search-results-container">
-                                                                                            <div class="related-titles-bar">
-                                                                                                <span style="color: #777;">Explore titles related to:</span>
-                                                                                                ${related.map(t => `<span class="related-title">${t}</span>`).join('')}
-                                                                                            </div>
+                <div class="search-results-container">
+                    <div class="related-titles-bar">
+                        <span style="color: #777;">Explore titles related to:</span>
+                        ${related.map(t => `<span class="related-title">${t}</span>`).join('')}
+                    </div>
 
-                                                                                            <div class="grid-layout">
-                                                                                                ${results.map(item => {
-                const imgPath = item.backdrop_path || item.poster_path;
-                let fullImg = 'https://via.placeholder.com/300x169';
-                if (imgPath) {
-                    fullImg = imgPath.startsWith('http') ? imgPath : 'https://image.tmdb.org/t/p/w780' + imgPath;
-                }
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 4%;">
+                        ${results.map(item => {
+                            const imgPath = item.backdrop_path || item.poster_path;
+                            let fullImg = 'https://via.placeholder.com/300x169';
+                            if (imgPath) {
+                                fullImg = imgPath.startsWith('http') ? imgPath : 'https://image.tmdb.org/t/p/w780' + imgPath;
+                            }
 
-                return `
-                            <div class="poster" onclick='app.router.openDetails(${JSON.stringify(item).replace(/'/g, "&#39;")})'>
-                                <img src="${fullImg}" class="poster-img">
-                                <h3 style="margin-top: 10px; font-size: 0.9rem; color: #ccc;">${item.title || item.name}</h3>
-                            </div>
+                            return `
+                                <div onclick='app.router.openDetails(${JSON.stringify(item).replace(/'/g, "&#39;")})' 
+                                     style="cursor: pointer; position: relative; border-radius: 8px; overflow: hidden; transition: transform 0.2s; background: #181818; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"
+                                     onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: relative;">
+                                        <img src="${fullImg}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;">
+                                        <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; color: white;">
+                                            <i data-lucide="play" style="width: 10px; height: 10px; display: inline-block;"></i> Included
+                                        </div>
+                                    </div>
+                                    <div style="padding: 12px;">
+                                        <h3 style="font-size: 1rem; color: #fff; margin: 0 0 6px 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${item.title || item.name}</h3>
+                                        <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; color: #aaa;">
+                                            <span style="color: #00A8E1; font-weight: bold;">prime</span>
+                                            <span>${item.release_date ? item.release_date.split('-')[0] : '2024'}</span>
+                                            <span style="border: 1px solid #555; padding: 1px 4px; border-radius: 2px; font-size: 0.6rem;">HD</span>
+                                        </div>
+                                    </div>
+                                </div>
                             `;
-            }).join('')}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                        `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
             lucide.createIcons();
         },
 
