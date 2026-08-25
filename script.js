@@ -355,17 +355,19 @@ const app = {
         },
 
         openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null) => {
-            // FAILSAFE: If videoUrl is missing, check Hardcoded Content
-            if ((!videoUrl || videoUrl.trim() === '') && itemId && episodeIndex !== null && window.NETFLIX_INITIAL_CONTENT) {
-                const hardcodedItem = window.NETFLIX_INITIAL_CONTENT.find(h => h.id === itemId);
-                if (hardcodedItem && hardcodedItem.episodes && hardcodedItem.episodes[episodeIndex]) {
-                    const fallbackEp = hardcodedItem.episodes[episodeIndex];
-                    if (fallbackEp.video_url) {
-                        console.log("Using Hardcoded Fallback URL for Episode");
-                        videoUrl = fallbackEp.video_url;
-                        if (!captionUrl) captionUrl = fallbackEp.caption_url;
-                    }
+            // Check if item is TMDB content without direct video URL
+            if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && window.currentItem && !window.currentItem.is_custom) {
+                const item = window.currentItem;
+                const isTv = item.media_type === 'tv' || item.first_air_date || item.name;
+                let seasonNum = 1;
+                let episodeNum = 1;
+                if (episodeIndex !== null && item.episodes && item.episodes[episodeIndex]) {
+                    seasonNum = item.episodes[episodeIndex].season || 1;
+                    episodeNum = item.episodes[episodeIndex].episode_number || (episodeIndex + 1);
                 }
+                videoUrl = isTv 
+                    ? `https://www.vidking.net/embed/tv/${itemId}/${seasonNum}/${episodeNum}`
+                    : `https://www.vidking.net/embed/movie/${itemId}`;
             }
 
             if (!videoUrl) return alert("No video URL available!");
@@ -653,6 +655,21 @@ const app = {
                             </iframe>
                         </div>
                     `;
+                } else if (iframeUrl.includes('vidking.net')) {
+                    modal.innerHTML = `
+                        <button class="close-player" onclick="app.handlers.closePlayer()" 
+                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
+                            <i data-lucide="x" width="30" height="30"></i>
+                        </button>
+                        <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
+                            <iframe src="${iframeUrl}" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allowfullscreen 
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
+                            </iframe>
+                        </div>
+                    `;
                 } else {
                     // Native Video Support (MP4, etc.)
                     modal.innerHTML = `
@@ -819,21 +836,23 @@ const app = {
             }
         },
         playMain: (url, hasEpisodes) => {
-            if (hasEpisodes && window.currentItem && window.currentItem.episodes.length > 0) {
+            const item = window.currentItem;
+            if (hasEpisodes && item && item.episodes && item.episodes.length > 0) {
                 // Play first episode
-                app.router.openPlayer(window.currentItem.episodes[0].video_url, window.currentItem.episodes[0].caption_url);
-            } else if (url && url !== 'undefined') {
+                const ep = item.episodes[0];
+                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0);
+            } else if (url && url !== 'undefined' && url.trim() !== '') {
                 app.router.openPlayer(url);
+            } else if (item && item.id && !item.is_custom) {
+                // Vidking Embed Integration for TMDB Content
+                const isTv = item.media_type === 'tv' || item.name || item.first_air_date;
+                const vidkingUrl = isTv 
+                    ? `https://www.vidking.net/embed/tv/${item.id}/1/1`
+                    : `https://www.vidking.net/embed/movie/${item.id}`;
+                app.router.openPlayer(vidkingUrl);
             } else {
-                // If no video, open details instead of Rick Rolling
-                // If we are already IN details (which playMain usually is), this might be redundant but better than the fallback
-                if (window.currentItem) {
-                    // Reuse the openDetails logic? No, just alert or do nothing? 
-                    // Actually, let's just show an alert or a trailer search if possible.
-                    // But for now, specifically remove the Rick Roll.
-                    console.warn("No video URL found for this item.");
-                    alert("Video not available for this title.");
-                }
+                console.warn("No video URL found for this item.");
+                alert("Video not available for this title.");
             }
         },
         switchSeason: (ele, itemId) => {
