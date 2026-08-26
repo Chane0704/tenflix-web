@@ -1800,21 +1800,20 @@ const app = {
             ];
 
             const q = query.toLowerCase();
-            let allContent = [...app.state.customContent];
+            let tmdbResults = [];
 
-            // Fetch live search results from TMDB API
             try {
-                if (app.state.config && app.state.config.apiKey) {
-                    const res = await fetch(`${app.state.config.tmdbBaseUrl}/search/multi?api_key=${app.state.config.apiKey}&query=${encodeURIComponent(query)}`);
-                    const data = await res.json();
-                    if (data && data.results) {
-                        const tmdbResults = data.results.filter(i => i.media_type === 'movie' || i.media_type === 'tv');
-                        allContent = [...allContent, ...tmdbResults];
-                    }
+                tmdbResults = await app.services.fetchTmdb(`/search/multi?query=${encodeURIComponent(query)}`);
+                if (Array.isArray(tmdbResults)) {
+                    tmdbResults = tmdbResults.filter(i => i.media_type === 'movie' || i.media_type === 'tv');
+                } else {
+                    tmdbResults = [];
                 }
             } catch (e) {
                 console.error("TMDB Search Error", e);
             }
+
+            let allContent = [...app.state.customContent, ...tmdbResults];
 
             let results = allContent.filter(i => {
                 const title = (i.title || i.name || '').toLowerCase();
@@ -2118,45 +2117,37 @@ const app = {
             };
         },
 
-        loadContent: async () => {
-            const { apiKey, tmdbBaseUrl } = app.state.config;
+        fetchTmdb: async (path) => {
+            const apiKey = 'd582a5bf11361f97f2946cbb1cc55ce8';
+            const tmdbBaseUrl = 'https://api.themoviedb.org/3';
+            let url = `${tmdbBaseUrl}${path}`;
+            if (!url.includes('?')) url += '?language=en-US';
+            else url += '&language=en-US';
+            url += `&api_key=${apiKey}`;
 
-            if (!apiKey) {
-                console.warn("No API Key. Using Mock Data.");
-                app.services.useMockData();
-                return;
-            }
+            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
 
             try {
-                const fetcher = async (path) => {
-                    let url = `${tmdbBaseUrl}${path}?language=en-US`;
-                    let options = {};
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                return data.results || [];
+            } catch (e) {
+                console.error("TMDB Fetch Error:", e);
+                return [];
+            }
+        },
 
-                    if (apiKey.startsWith('ey')) {
-                        options = {
-                            headers: {
-                                'Authorization': `Bearer ${apiKey}`,
-                                'Content-Type': 'application/json;charset=utf-8'
-                            }
-                        };
-                    } else {
-                        url += `&api_key=${apiKey}`;
-                    }
-
-                    const res = await fetch(url, options);
-                    const data = await res.json();
-                    return data.results || [];
-                };
-
+        loadContent: async () => {
+            try {
                 const [trending, topRated, action] = await Promise.all([
-                    fetcher('/trending/all/week'),
-                    fetcher('/movie/top_rated'),
-                    fetcher('/discover/movie?with_genres=28')
+                    app.services.fetchTmdb('/trending/all/week'),
+                    app.services.fetchTmdb('/movie/top_rated'),
+                    app.services.fetchTmdb('/discover/movie?with_genres=28')
                 ]);
 
-                app.state.tmdbContent.trending = trending;
-                app.state.tmdbContent.topRated = topRated;
-                app.state.tmdbContent.action = action;
+                if (trending.length > 0) app.state.tmdbContent.trending = trending;
+                if (topRated.length > 0) app.state.tmdbContent.topRated = topRated;
+                if (action.length > 0) app.state.tmdbContent.action = action;
             } catch (err) {
                 console.error("API Fetch Failed", err);
                 app.services.useMockData();
