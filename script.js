@@ -1790,23 +1790,32 @@ const app = {
              `;
         },
 
-        search: (container, query) => {
+        search: async (container, query) => {
+            container.innerHTML = `<div style="padding: 100px 4%; text-align: center; color: white;"><div class="loader" style="display:inline-block; width:50px; height:50px; border:3px solid rgba(255,255,255,0.3); border-radius:50%; border-top-color:#fff; animation:spin 1s ease-in-out infinite;"></div><h2 style="margin-top:20px;">Searching...</h2><style>@keyframes spin { to { transform: rotate(360deg); } }</style></div>`;
+
             // Mock related titles for visual match
             const related = [
                 `${query} & Order`, `${query}less`, `${query} Abiding Citizen`,
                 `${query} & Order: SVU`, `The ${query}yer`, `${query}s of Attraction`
             ];
 
-            // Filter content (Basic local search for demo)
-            // Combine all available content
-            const allContent = [
-                ...app.state.tmdbContent.trending,
-                ...app.state.tmdbContent.topRated,
-                ...app.state.tmdbContent.action,
-                ...app.state.customContent
-            ];
-
             const q = query.toLowerCase();
+            let allContent = [...app.state.customContent];
+
+            // Fetch live search results from TMDB API
+            try {
+                if (app.state.config && app.state.config.apiKey) {
+                    const res = await fetch(`${app.state.config.tmdbBaseUrl}/search/multi?api_key=${app.state.config.apiKey}&query=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    if (data && data.results) {
+                        const tmdbResults = data.results.filter(i => i.media_type === 'movie' || i.media_type === 'tv');
+                        allContent = [...allContent, ...tmdbResults];
+                    }
+                }
+            } catch (e) {
+                console.error("TMDB Search Error", e);
+            }
+
             let results = allContent.filter(i => {
                 const title = (i.title || i.name || '').toLowerCase();
                 const desc = (i.description || i.overview || '').toLowerCase();
@@ -1816,6 +1825,7 @@ const app = {
             // Remove duplicates by ID just in case
             const seen = new Set();
             results = results.filter(i => {
+                if (!i.id) return false;
                 if(seen.has(i.id)) return false;
                 seen.add(i.id);
                 return true;
