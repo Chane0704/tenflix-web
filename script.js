@@ -15,6 +15,17 @@ const app = {
         }
     },
 
+    utils: {
+        proxyImg: (url) => {
+            if (!url) return '';
+            // Proxy TMDB image domains through wsrv.nl to bypass ISP blocks
+            if (url.includes('tmdb.org') || url.includes('themoviedb.org')) {
+                return 'https://wsrv.nl/?url=' + url.replace(/^https?:\/\//, '');
+            }
+            return url;
+        }
+    },
+
     storage: {
         dbName: 'NetflixCloneDB',
         storeName: 'files',
@@ -709,8 +720,11 @@ const app = {
                 const backdropBase = app.state.config ? app.state.config.backdropBaseUrl : '';
                 const posterBase = app.state.config ? app.state.config.imageBaseUrl : '';
 
-                const imgUrl = isCustom ? item.backdrop_path : (item.backdrop_path ? backdropBase + item.backdrop_path : 'https://via.placeholder.com/800x450');
-                const posterUrl = isCustom ? item.poster_path : (item.poster_path ? posterBase + item.poster_path : 'https://via.placeholder.com/200x300');
+                let imgUrl = isCustom ? item.backdrop_path : (item.backdrop_path ? backdropBase + item.backdrop_path : 'https://via.placeholder.com/800x450');
+                let posterUrl = isCustom ? item.poster_path : (item.poster_path ? posterBase + item.poster_path : 'https://via.placeholder.com/200x300');
+                
+                imgUrl = app.utils.proxyImg(imgUrl);
+                posterUrl = app.utils.proxyImg(posterUrl);
 
                 // Episode Logic
                 const hasEpisodes = item.episodes && item.episodes.length > 0;
@@ -1280,6 +1294,7 @@ const app = {
                 } else if (item.poster_path) {
                     heroImg = item.poster_path.startsWith('http') ? item.poster_path : app.state.config.backdropBaseUrl + item.poster_path;
                 }
+                heroImg = app.utils.proxyImg(heroImg);
 
                 heroContainer.style.backgroundImage = `url('${heroImg}')`;
 
@@ -1838,10 +1853,11 @@ const app = {
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 4%;">
                         ${results.map(item => {
                             const imgPath = item.backdrop_path || item.poster_path;
-                            let fullImg = 'https://via.placeholder.com/300x169';
+                            let fullImg = 'https://via.placeholder.com/300x169?text=No+Image';
                             if (imgPath) {
                                 fullImg = imgPath.startsWith('http') ? imgPath : 'https://image.tmdb.org/t/p/w780' + imgPath;
                             }
+                            fullImg = app.utils.proxyImg(fullImg);
 
                             return `
                                 <div onclick='app.router.openDetails(${JSON.stringify(item).replace(/'/g, "&#39;")})' 
@@ -1943,6 +1959,7 @@ const app = {
                     heroImg = 'https://image.tmdb.org/t/p/original' + item.poster_path;
                 }
             }
+            heroImg = app.utils.proxyImg(heroImg);
 
             return `
                                                                                         <div class="hero" style="background-image: url('${heroImg}')">
@@ -1978,6 +1995,7 @@ const app = {
                 } else if (item.poster_path) {
                     imgPath = item.poster_path.startsWith('http') ? item.poster_path : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
                 }
+                imgPath = app.utils.proxyImg(imgPath);
 
                 const isTop10 = false; // Removed as per user request
                 let isNewSeason = Math.random() > 0.8;
@@ -2030,6 +2048,7 @@ const app = {
                 if (!imgUrl) {
                     imgUrl = isCustom ? item.backdrop_path : (item.backdrop_path ? app.state.config.backdropBaseUrl + item.backdrop_path : 'https://via.placeholder.com/200');
                 }
+                imgUrl = app.utils.proxyImg(imgUrl);
                 const epId = 'ep-dur-' + item.id + '-' + index;
 
                 return `
