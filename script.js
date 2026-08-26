@@ -1424,12 +1424,20 @@ const app = {
                         <button class="btn btn-primary" onclick="window.location.hash = 'add'"><i data-lucide="plus"></i> Add Title</button>
                     </div>
                     <div class="grid-layout">
-                        ${app.state.customContent.map(item => `
-                            <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')">
-                                <img src="${item.poster_path}" class="poster-img" style="aspect-ratio: 2/3;">
-                                <h3 style="margin-top: 10px; font-size: 1rem;">${item.title}</h3>
-                            </div>
-                        `).join('')}
+                        ${app.state.customContent.map(item => {
+                            let customPoster = item.poster_path || item.backdrop_path || '';
+                            if (customPoster && !customPoster.startsWith('http')) {
+                                customPoster = app.state.config.imageBaseUrl + customPoster;
+                            } else if (!customPoster) {
+                                customPoster = 'https://via.placeholder.com/200x300?text=No+Image';
+                            }
+                            return `
+                                <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')">
+                                    <img src="${app.utils.proxyImg(customPoster)}" class="poster-img" style="aspect-ratio: 2/3;">
+                                    <h3 style="margin-top: 10px; font-size: 1rem;">${item.title}</h3>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                     ${app.state.customContent.length === 0 ? '<p>No content yet. Go add some!</p>' : ''}
                 </div>
