@@ -1,5 +1,20 @@
 window.NETFLIX_INITIAL_CONTENT = [
     {
+        "id": "voicemails_for_isabelle",
+        "title": "Voicemails For Isabelle",
+        "original_title": "Voicemails For Isabelle",
+        "description": "Jill (Zoey Deutch), an aspiring pastry chef in San Francisco, copes with the loss of her sister Isabelle by continuing to leave voicemails on her old phone number. Unbeknownst to her, the number is reassigned to Wes (Nick Robinson) in Austin, who finds himself falling in love with her through her personal audio diaries.",
+        "genre": "Comedy, Romance, Drama",
+        "poster_path": "https://media.themoviedb.org/t/p/original/1XxL4LJ5WHdrcYcihEZUCgNCpAW.jpg",
+        "backdrop_path": "https://media.themoviedb.org/t/p/original/7tTCnQcKzUkabDV3BJMe7LIzlEs.jpg",
+        "release_date": "2026-02-14",
+        "runtime": 108,
+        "vote_average": 7.5,
+        "is_custom": true,
+        "type": "movie",
+        "video_url": "https://drive.google.com/file/d/1HEayTEGOote01WKCjCxfmqk0zS_ViMWf/view?usp=drive_link"
+    },
+    {
         "id": "movie_1582770",
         "title": "Dhurandhar The Revenge",
         "original_title": "Dhurandhar: The Revenge",

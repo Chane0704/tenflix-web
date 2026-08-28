@@ -289,25 +289,20 @@ const app = {
                 console.warn('Initial content not loaded.');
                 window.NETFLIX_INITIAL_CONTENT = [];
             } else {
-                // FORCE UPDATE FRIENDS DATA IF IT EXISTS
-                // This ensures that hardcoded updates to initialContent.js (like adding S2) are applied
-                // even if the user has a stale version saved in IndexedDB.
-                const freshFriends = window.NETFLIX_INITIAL_CONTENT.find(i => i.id === 'friends_s1_full');
-                if (freshFriends) {
-                    try {
-                        const currentLocal = JSON.parse(localStorage.getItem('netflix_custom_content') || '[]');
-                        const idx = currentLocal.findIndex(i => i.id === 'friends_s1_full');
+                // Auto-sync all initialContent.js entries into localStorage so new additions immediately appear
+                try {
+                    const currentLocal = JSON.parse(localStorage.getItem('netflix_custom_content') || '[]');
+                    window.NETFLIX_INITIAL_CONTENT.forEach(initItem => {
+                        const idx = currentLocal.findIndex(i => i.id === initItem.id);
                         if (idx !== -1) {
-                            // OVERWRITE completely
-                            currentLocal[idx] = freshFriends;
+                            currentLocal[idx] = initItem;
                         } else {
-                            currentLocal.push(freshFriends);
+                            currentLocal.push(initItem);
                         }
-                        localStorage.setItem('netflix_custom_content', JSON.stringify(currentLocal));
-                        console.log('Forced update of Friends data. Episodes count:', freshFriends.episodes.length);
-                    } catch (e) {
-                        console.error("Failed to force update Friends", e);
-                    }
+                    });
+                    localStorage.setItem('netflix_custom_content', JSON.stringify(currentLocal));
+                } catch (e) {
+                    console.error("Failed to sync initial content", e);
                 }
             }
 
