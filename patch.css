@@ -595,3 +595,53 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+
+
+/* ===================================================
+   PLAYER AUDIO & VOLUME PERSISTENCE
+   =================================================== */
+
+.player-volume-badge {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 999999;
+    background: rgba(18, 21, 28, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 24px;
+    padding: 8px 16px;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8);
+    transition: opacity 0.5s ease, transform 0.2s ease, background 0.2s ease;
+    animation: fadeInDown 0.3s ease-out;
+    pointer-events: auto;
+    user-select: none;
+}
+
+.player-volume-badge:hover {
+    background: rgba(28, 33, 44, 0.98);
+    transform: scale(1.05);
+}
+
+.player-volume-badge i {
+    width: 16px;
+    height: 16px;
+    color: #46d369;
+}
+
+.player-volume-badge.muted i {
+    color: #e50914;
+}
+
+.player-volume-badge.faded {
+    opacity: 0;
+    pointer-events: none;
+}

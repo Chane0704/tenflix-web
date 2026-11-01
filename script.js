@@ -710,11 +710,60 @@ const app = {
         }
     },
 
+    audio: {
+        getVolume: () => {
+            const v = localStorage.getItem('tenflix_player_volume');
+            return v !== null ? parseFloat(v) : 1.0;
+        },
+        isMuted: () => {
+            return localStorage.getItem('tenflix_player_muted') === 'true';
+        },
+        setVolume: (vol) => {
+            const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 1));
+            localStorage.setItem('tenflix_player_volume', clamped);
+            if (clamped > 0) {
+                localStorage.setItem('tenflix_player_muted', 'false');
+            }
+        },
+        setMuted: (muted) => {
+            localStorage.setItem('tenflix_player_muted', muted ? 'true' : 'false');
+        },
+        applyToVideo: (videoEl) => {
+            if (!videoEl) return;
+            const vol = app.audio.getVolume();
+            const muted = app.audio.isMuted();
+
+            videoEl.volume = vol;
+            videoEl.muted = muted;
+
+            videoEl.addEventListener('volumechange', () => {
+                localStorage.setItem('tenflix_player_volume', videoEl.volume);
+                localStorage.setItem('tenflix_player_muted', videoEl.muted ? 'true' : 'false');
+            });
+        },
+        initMessageListener: () => {
+            window.addEventListener('message', (event) => {
+                try {
+                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                    if (!data) return;
+                    if (typeof data.volume === 'number') {
+                        const normalized = data.volume > 1 ? data.volume / 100 : data.volume;
+                        app.audio.setVolume(normalized);
+                    }
+                    if (typeof data.muted === 'boolean') {
+                        app.audio.setMuted(data.muted);
+                    }
+                } catch (e) {}
+            });
+        }
+    },
+
     init: async () => {
         console.log('Netflix Clone Initializing...');
 
         try {
             app.handlers.checkCookieConsent();
+            app.audio.initMessageListener();
             app.hoverCard.init();
             // Safety check for Lucide
             if (typeof lucide === 'undefined') {
@@ -811,9 +860,10 @@ const app = {
                     seasonNum = item.episodes[episodeIndex].season || 1;
                     episodeNum = item.episodes[episodeIndex].episode_number || (episodeIndex + 1);
                 }
+                const audioParams = '?primaryColor=E50914&autoplay=true';
                 videoUrl = isTv 
-                    ? `https://vidlink.pro/tv/${itemId}/${seasonNum}/${episodeNum}`
-                    : `https://vidlink.pro/movie/${itemId}`;
+                    ? `https://vidlink.pro/tv/${itemId}/${seasonNum}/${episodeNum}${audioParams}`
+                    : `https://vidlink.pro/movie/${itemId}${audioParams}`;
             }
 
             if (!videoUrl) return alert("No video URL available!");
@@ -922,7 +972,7 @@ const app = {
                             Replay
                         </button>
                     </div>
-                    <video controls autoplay style="width: 100%; height: 100%;" crossorigin="anonymous" 
+                    <video id="active-native-video" controls autoplay style="width: 100%; height: 100%;" crossorigin="anonymous" 
                         onended="document.getElementById('video-overlay').style.display='flex';" 
                         onplay="document.getElementById('video-overlay').style.display='none';"
                         onerror="console.error('Video Error'); alert('Video Playback Error. decoding failed.');">
@@ -941,6 +991,8 @@ const app = {
                     </div>
                 `;
                 lucide.createIcons();
+                const nativeVid = modal.querySelector('video');
+                if (nativeVid) app.audio.applyToVideo(nativeVid);
             } else if (isYoutube) {
                 // YouTube API Player for Custom Captions
                 modal.innerHTML = `
@@ -1094,7 +1146,7 @@ const app = {
                             <iframe src="${iframeUrl}" 
                                 frameborder="0" 
                                 referrerpolicy="no-referrer" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
                                 playsinline 
                                 allowfullscreen 
                                 style="position: absolute; top: 50%; left: 50%; width: 100vw; height: 100vh; transform: translate(-50%, -50%); -webkit-tap-highlight-color: transparent; border: none; pointer-events: auto;">
@@ -1102,20 +1154,55 @@ const app = {
                         </div>
                     `;
                 } else if (iframeUrl.includes('vidlink.pro') || iframeUrl.includes('vidsrc') || iframeUrl.includes('vidking.net') || iframeUrl.includes('/embed')) {
+                    const savedVol = Math.round(app.audio.getVolume() * 100);
+                    const isMuted = app.audio.isMuted();
+
                     modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
                             style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
                             <i data-lucide="x" width="30" height="30"></i>
                         </button>
+                        <div id="player-volume-badge" class="player-volume-badge ${isMuted ? 'muted' : ''}" onclick="app.handlers.togglePlayerAudio(this)">
+                            <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
+                            <span>${isMuted ? 'Audio: Muted' : 'Audio: ' + savedVol + '% (Unmuted)'}</span>
+                        </div>
                         <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
-                            <iframe src="${iframeUrl}" 
+                            <iframe id="main-player-iframe" src="${iframeUrl}" 
                                 frameborder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
                                 allowfullscreen 
                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
                             </iframe>
                         </div>
                     `;
+                    if (window.lucide) lucide.createIcons();
+
+                    // Send unMute signals to iframe and auto-fade badge after 4s
+                    setTimeout(() => {
+                        const badge = document.getElementById('player-volume-badge');
+                        if (badge) badge.classList.add('faded');
+                    }, 4000);
+
+                    const iframe = document.getElementById('main-player-iframe');
+                    if (iframe) {
+                        const sendAudioState = () => {
+                            try {
+                                const currentMuted = app.audio.isMuted();
+                                const currentVol = app.audio.getVolume();
+                                iframe.contentWindow.postMessage({ type: 'setMute', muted: currentMuted }, '*');
+                                iframe.contentWindow.postMessage({ type: 'setVolume', volume: currentVol * 100 }, '*');
+                                if (!currentMuted) {
+                                    iframe.contentWindow.postMessage({ method: 'unMute' }, '*');
+                                    iframe.contentWindow.postMessage({ type: 'unmute' }, '*');
+                                }
+                            } catch (e) {}
+                        };
+                        iframe.addEventListener('load', () => {
+                            sendAudioState();
+                            setTimeout(sendAudioState, 600);
+                            setTimeout(sendAudioState, 1500);
+                        });
+                    }
                 } else {
                     // Native Video Support (MP4, etc.)
                     modal.innerHTML = `
@@ -1264,6 +1351,41 @@ const app = {
     },
 
     handlers: {
+        togglePlayerAudio: (badgeEl) => {
+            const currentlyMuted = app.audio.isMuted();
+            const newMuted = !currentlyMuted;
+            app.audio.setMuted(newMuted);
+
+            const vol = Math.round(app.audio.getVolume() * 100);
+            if (badgeEl) {
+                badgeEl.classList.remove('faded');
+                if (newMuted) {
+                    badgeEl.classList.add('muted');
+                    badgeEl.innerHTML = '<i data-lucide="volume-x"></i><span>Audio: Muted</span>';
+                } else {
+                    badgeEl.classList.remove('muted');
+                    badgeEl.innerHTML = '<i data-lucide="volume-2"></i><span>Audio: ' + vol + '% (Unmuted)</span>';
+                }
+                if (window.lucide) lucide.createIcons({ root: badgeEl });
+                setTimeout(() => { if (badgeEl) badgeEl.classList.add('faded'); }, 3000);
+            }
+
+            // Sync with active video or iframe
+            const nativeVid = document.getElementById('active-native-video') || document.querySelector('video');
+            if (nativeVid) {
+                nativeVid.muted = newMuted;
+            }
+
+            const iframe = document.getElementById('main-player-iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'setMute', muted: newMuted }, '*');
+                if (!newMuted) {
+                    iframe.contentWindow.postMessage({ method: 'unMute' }, '*');
+                    iframe.contentWindow.postMessage({ type: 'unmute' }, '*');
+                }
+            }
+        },
+
         quickPlay: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
@@ -1973,7 +2095,7 @@ const app = {
                                                                                 style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
                                                                                 <i data-lucide="x" width="40" height="40"></i>
                                                                             </button>
-                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" allowfullscreen></iframe>
                                                                             `;
                 if (window.lucide) window.lucide.createIcons();
             }
