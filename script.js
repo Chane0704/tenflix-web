@@ -758,6 +758,18 @@ const app = {
         }
     },
 
+    customTmdbMap: {
+        'httyd_1': '10191',
+        'httyd_2': '82702',
+        'httyd_3': '166428',
+        'movie_1582770': '1582770',
+        'movie_1291608': '1291608',
+        'crazy_rich_asians': '455207',
+        'how_to_lose_a_guy': '9919',
+        '10_things': '4951',
+        'perks_of_being_a_wallflower': '84346'
+    },
+
     init: async () => {
         console.log('Netflix Clone Initializing...');
 
@@ -849,7 +861,11 @@ const app = {
             lucide.createIcons();
         },
 
-        openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null) => {
+        openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1) => {
+            if (itemId) {
+                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId);
+            }
+            window.currentActiveServer = activeServer;
             // Check if item is TMDB content without direct video URL
             if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && window.currentItem && !window.currentItem.is_custom) {
                 const item = window.currentItem;
@@ -1137,11 +1153,18 @@ const app = {
                 }
 
                 if (isDrive) {
+                    const hasServer2 = window.currentPlayingItem && (app.customTmdbMap[window.currentPlayingItem.id] || window.currentPlayingItem.id);
                     modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.5); border-radius: 50%; padding: 10px; border: none; color: white; cursor: pointer; pointer-events: auto;">
+                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
                             <i data-lucide="x" width="30" height="30"></i>
                         </button>
+                        ${hasServer2 ? `
+                            <div class="player-server-bar">
+                                <button class="server-btn active" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
+                                <button class="server-btn" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
+                            </div>
+                        ` : ''}
                         <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
                             <iframe src="${iframeUrl}" 
                                 frameborder="0" 
@@ -1153,15 +1176,23 @@ const app = {
                             </iframe>
                         </div>
                     `;
+                    if (window.lucide) lucide.createIcons();
                 } else if (iframeUrl.includes('vidlink.pro') || iframeUrl.includes('vidsrc') || iframeUrl.includes('vidking.net') || iframeUrl.includes('/embed')) {
                     const savedVol = Math.round(app.audio.getVolume() * 100);
                     const isMuted = app.audio.isMuted();
 
+                    const hasServer1 = window.currentPlayingItem && window.currentPlayingItem.video_url && window.currentPlayingItem.video_url.includes('drive.google.com');
                     modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
                             style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
                             <i data-lucide="x" width="30" height="30"></i>
                         </button>
+                        ${hasServer1 ? `
+                            <div class="player-server-bar">
+                                <button class="server-btn" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
+                                <button class="server-btn active" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
+                            </div>
+                        ` : ''}
                         <div id="player-volume-badge" class="player-volume-badge ${isMuted ? 'muted' : ''}" onclick="app.handlers.togglePlayerAudio(this)">
                             <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
                             <span>${isMuted ? 'Audio: Muted' : 'Audio: ' + savedVol + '% (Unmuted)'}</span>
@@ -1277,6 +1308,11 @@ const app = {
                                     <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})">
                                         <i data-lucide="play" fill="black"></i> Play
                                     </button>
+                                    ${item.is_custom && (app.customTmdbMap[item.id] || item.id) ? `
+                                        <button class="btn btn-secondary" onclick="app.handlers.playServer2('${item.id}')" title="Play alternative HD stream if Drive is blocked">
+                                            <i data-lucide="sparkles"></i> Server 2 (HD Stream)
+                                        </button>
+                                    ` : ''}
                                     
                                     <a href="https://drive.google.com/drive/folders/1jx3Drfqd9dDaElb0AlR3ocsRKwyiIP4b?usp=drive_link" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; color: white;">
                                         <i data-lucide="download"></i> Download
@@ -1383,6 +1419,32 @@ const app = {
                     iframe.contentWindow.postMessage({ method: 'unMute' }, '*');
                     iframe.contentWindow.postMessage({ type: 'unmute' }, '*');
                 }
+            }
+        },
+
+        playServer2: (id) => {
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
+            if (!item) return;
+            const tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
+            const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+            app.router.openPlayer(streamUrl, null, id, null, 2);
+        },
+
+        switchPlayerServer: (targetServerNum) => {
+            const item = window.currentPlayingItem;
+            if (!item) return;
+
+            const newServer = targetServerNum || (window.currentActiveServer === 1 ? 2 : 1);
+            window.currentActiveServer = newServer;
+
+            if (newServer === 2) {
+                // Switch to VidLink HD Stream
+                const tmdbId = app.customTmdbMap[item.id] || (item.id && item.id.replace('movie_', '')) || item.id;
+                const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+                app.router.openPlayer(streamUrl, null, item.id, null, 2);
+            } else {
+                // Switch back to original file/Drive
+                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, 1);
             }
         },
 
