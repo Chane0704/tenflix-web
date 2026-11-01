@@ -160,6 +160,9 @@
                 style="z-index: 3000; background: black; padding: 0 !important; margin: 0 !important; width: 100vw !important; height: 100vh !important; display: flex; align-items: center; justify-content: center;"
                 onclick="if(event.target === this) app.handlers.closePlayer()"></div>
 
+            <!-- Prime Video Style Floating Hover Card Portal -->
+            <div id="prime-hover-card" class="prime-hover-card hidden"></div>
+
             <!-- Legal, Privacy & Policies Modal -->
             <div id="legal-modal" class="modal-container hidden" style="z-index: 3500; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px);"
                 onclick="if(event.target === this) document.getElementById('legal-modal').classList.add('hidden')">
@@ -214,9 +217,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=LEGAL_COMPLIANCE_FINAL">
+    <link rel="stylesheet" href="patch.css?v=PRIME_HOVER_TITLES_V1">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=LEGAL_COMPLIANCE_FINAL" defer></script>
+    <script src="script.js?v=PRIME_HOVER_TITLES_V1" defer></script>
 </body>
 
 </html>

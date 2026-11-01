@@ -534,11 +534,188 @@ const app = {
         }
     },
 
+    hoverCard: {
+        currentPoster: null,
+        hoverTimer: null,
+        hideTimer: null,
+
+        init: () => {
+            const card = document.getElementById('prime-hover-card');
+            if (!card) return;
+
+            document.addEventListener('mouseover', (e) => {
+                const poster = e.target.closest('.poster');
+                if (poster && poster.dataset && poster.dataset.itemId) {
+                    if (app.hoverCard.hideTimer) {
+                        clearTimeout(app.hoverCard.hideTimer);
+                        app.hoverCard.hideTimer = null;
+                    }
+                    if (app.hoverCard.currentPoster === poster && !card.classList.contains('hidden')) {
+                        return;
+                    }
+                    if (app.hoverCard.hoverTimer) clearTimeout(app.hoverCard.hoverTimer);
+                    app.hoverCard.hoverTimer = setTimeout(() => {
+                        app.hoverCard.show(poster);
+                    }, 180);
+                }
+            });
+
+            document.addEventListener('mouseout', (e) => {
+                const poster = e.target.closest('.poster');
+                if (poster && poster.dataset && poster.dataset.itemId) {
+                    const toEl = e.relatedTarget;
+                    if (card.contains(toEl)) return;
+                    app.hoverCard.scheduleHide();
+                }
+            });
+
+            card.addEventListener('mouseenter', () => {
+                if (app.hoverCard.hideTimer) {
+                    clearTimeout(app.hoverCard.hideTimer);
+                    app.hoverCard.hideTimer = null;
+                }
+            });
+
+            card.addEventListener('mouseleave', (e) => {
+                const toEl = e.relatedTarget;
+                if (app.hoverCard.currentPoster && app.hoverCard.currentPoster.contains(toEl)) return;
+                app.hoverCard.scheduleHide();
+            });
+
+            window.addEventListener('scroll', () => app.hoverCard.hide(), { passive: true });
+            window.addEventListener('hashchange', () => app.hoverCard.hide());
+        },
+
+        scheduleHide: () => {
+            if (app.hoverCard.hoverTimer) {
+                clearTimeout(app.hoverCard.hoverTimer);
+                app.hoverCard.hoverTimer = null;
+            }
+            if (app.hoverCard.hideTimer) clearTimeout(app.hoverCard.hideTimer);
+            app.hoverCard.hideTimer = setTimeout(() => {
+                app.hoverCard.hide();
+            }, 180);
+        },
+
+        show: (posterEl) => {
+            const id = posterEl.dataset.itemId;
+            if (!id) return;
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
+            if (!item) return;
+
+            app.hoverCard.currentPoster = posterEl;
+            app.hoverCard.render(item, posterEl);
+        },
+
+        render: (item, anchorEl) => {
+            const card = document.getElementById('prime-hover-card');
+            if (!card || !anchorEl) return;
+
+            const rect = anchorEl.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+
+            const cardWidth = Math.min(360, Math.max(320, rect.width * 1.35));
+            let left = rect.left + (rect.width - cardWidth) / 2;
+            left = Math.max(12, Math.min(window.innerWidth - cardWidth - 12, left));
+
+            let top = rect.top - 20;
+            if (top < 70) top = 70;
+            if (top + 380 > window.innerHeight && window.innerHeight > 420) {
+                top = window.innerHeight - 390;
+            }
+
+            card.style.width = cardWidth + 'px';
+            card.style.left = left + 'px';
+            card.style.top = top + 'px';
+
+            const title = item.title || item.name || 'Untitled';
+            let img = item.backdrop_path || item.poster_path || '';
+            if (img && !img.startsWith('http')) {
+                img = 'https://image.tmdb.org/t/p/w780' + img;
+            }
+            img = app.utils.proxyImg(img || 'https://via.placeholder.com/340x190?text=No+Preview');
+
+            const year = item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : '2024');
+            const isMovie = item.type === 'movie' || item.release_date || !item.first_air_date;
+            const cert = item.adult ? 'A 18+' : (item.vote_average > 7.5 ? 'U/A 16+' : 'U/A 13+');
+
+            let duration = '';
+            if (item.runtime) {
+                const h = Math.floor(item.runtime / 60);
+                const m = item.runtime % 60;
+                duration = h > 0 ? `${h} h ${m} min` : `${m} min`;
+            } else if (item.episodes && item.episodes.length > 0) {
+                const seasons = [...new Set(item.episodes.map(e => e.season || 1))].length;
+                duration = seasons > 1 ? `${seasons} Seasons` : `${item.episodes.length} Episodes`;
+            } else {
+                duration = isMovie ? '2 h 14 min' : 'TV Series';
+            }
+
+            const genre = item.genre || (item.media_type === 'tv' ? 'Series' : 'Drama');
+            const desc = (item.overview || item.description || 'Watch now on Tenflix in Ultra HD quality. Stream on any device.').substring(0, 160) + '...';
+
+            const isInMyList = (app.state.customContent || []).some(c => c.id == item.id);
+
+            card.innerHTML = `
+                <div class="hover-card-media" onclick="app.handlers.openDetailsById('${item.id}')">
+                    <img src="${img}" alt="${title}" onerror="this.src='https://via.placeholder.com/340x190/181818/ffffff?text=' + encodeURIComponent('${title.replace(/'/g, "\\\'")}')">
+                    <div class="hover-media-title-overlay">
+                        <span>${title}</span>
+                    </div>
+                </div>
+                <div class="hover-card-content">
+                    <h3 class="hover-card-title" onclick="app.handlers.openDetailsById('${item.id}')">${title}</h3>
+                    <div class="hover-included-badge">
+                        <i data-lucide="check-circle-2"></i> Included with Tenflix
+                    </div>
+
+                    <div class="hover-card-actions">
+                        <button class="hover-btn-play" onclick="event.stopPropagation(); app.handlers.quickPlay('${item.id}')">
+                            <i data-lucide="play" fill="black"></i> Play
+                        </button>
+                        <button class="hover-btn-circle" title="More Info" onclick="event.stopPropagation(); app.handlers.openDetailsById('${item.id}')">
+                            <i data-lucide="info"></i>
+                        </button>
+                        <button class="hover-btn-circle ${isInMyList ? 'active' : ''}" title="${isInMyList ? 'In My List' : 'Add to My List'}" onclick="event.stopPropagation(); app.handlers.toggleMyList('${item.id}', this)">
+                            <i data-lucide="${isInMyList ? 'check' : 'plus'}"></i>
+                        </button>
+                    </div>
+
+                    <div class="hover-card-rank">
+                        <i data-lucide="trending-up"></i> Top Pick in ${genre}
+                    </div>
+
+                    <div class="hover-card-meta">
+                        <span class="hover-meta-badge">NEW</span>
+                        <span class="hover-meta-badge">HD</span>
+                        <span class="hover-meta-cert">${cert}</span>
+                        <span class="hover-meta-text">${year}</span>
+                        <span class="hover-meta-text">${duration}</span>
+                    </div>
+
+                    <p class="hover-card-desc">${desc}</p>
+                </div>
+            `;
+
+            if (window.lucide) lucide.createIcons({ root: card });
+            card.classList.remove('hidden');
+        },
+
+        hide: () => {
+            const card = document.getElementById('prime-hover-card');
+            if (card) {
+                card.classList.add('hidden');
+                app.hoverCard.currentPoster = null;
+            }
+        }
+    },
+
     init: async () => {
         console.log('Netflix Clone Initializing...');
 
         try {
             app.handlers.checkCookieConsent();
+            app.hoverCard.init();
             // Safety check for Lucide
             if (typeof lucide === 'undefined') {
                 console.warn('Lucide icons not loaded. Icons will be missing.');
@@ -1004,7 +1181,7 @@ const app = {
                                 <h1 style="font-size: 3rem; margin-bottom: 10px; line-height: 1.1; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-weight: bold;">${item.title || item.name}</h1>
                                 
                                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 0.9rem; color: #ccc;">
-                                    <span style="color: #46d369; font-weight: bold;">${Math.round((item.vote_average || 8) * 10)}% Match</span>
+                                    <span style="color: #00a8e1; font-weight: bold; display: flex; align-items: center; gap: 4px;"><i data-lucide="check-circle-2" style="width:14px; height:14px;"></i> Included with Tenflix</span>
                                     <span>${item.release_date || item.first_air_date || '2024'}</span>
                                     <span style="border: 1px solid #777; padding: 0 4px; font-size: 0.7rem; border-radius: 2px;">HD</span>
                                 </div>
@@ -1087,6 +1264,61 @@ const app = {
     },
 
     handlers: {
+        quickPlay: (id) => {
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
+            if (!item) return;
+            if (app.hoverCard) app.hoverCard.hide();
+
+            if (item.episodes && item.episodes.length > 0) {
+                app.router.openPlayer(item.episodes[0].video_url, item.episodes[0].caption_url, item.id, 0);
+            } else if (item.video_url) {
+                app.router.openPlayer(item.video_url, item.caption_url, item.id);
+            } else {
+                app.router.openPlayer(null, null, item.id);
+            }
+        },
+
+        toggleMyList: (id, btn) => {
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
+            if (!item) return;
+
+            let list = JSON.parse(localStorage.getItem('netflix_custom_content') || '[]');
+            const existingIdx = list.findIndex(i => i.id == id);
+
+            if (existingIdx !== -1) {
+                list.splice(existingIdx, 1);
+                if (btn) {
+                    btn.classList.remove('active');
+                    btn.innerHTML = '<i data-lucide="plus"></i>';
+                    btn.title = 'Add to My List';
+                    if (window.lucide) lucide.createIcons({ root: btn });
+                }
+            } else {
+                const newItem = {
+                    id: item.id,
+                    title: item.title || item.name,
+                    overview: item.overview || item.description || '',
+                    description: item.description || item.overview || '',
+                    poster_path: item.poster_path || item.backdrop_path || '',
+                    backdrop_path: item.backdrop_path || item.poster_path || '',
+                    release_date: item.release_date || item.first_air_date || '2024',
+                    genre: item.genre || 'Various',
+                    is_custom: true,
+                    type: item.type || (item.media_type === 'tv' ? 'tv' : 'movie')
+                };
+                list.push(newItem);
+                if (btn) {
+                    btn.classList.add('active');
+                    btn.innerHTML = '<i data-lucide="check"></i>';
+                    btn.title = 'In My List';
+                    if (window.lucide) lucide.createIcons({ root: btn });
+                }
+            }
+
+            localStorage.setItem('netflix_custom_content', JSON.stringify(list));
+            app.state.customContent = list;
+        },
+
         openLegal: (tab = 'privacy') => {
             const modal = document.getElementById('legal-modal');
             const content = document.getElementById('legal-modal-content');
@@ -2611,7 +2843,11 @@ const app = {
             `;
             const posters = row.querySelector('.row-posters');
 
-            posters.innerHTML = items.map(item => {
+            if (!window.appItemMap) window.appItemMap = {};
+
+            posters.innerHTML = items.map((item, idx) => {
+                window.appItemMap[item.id] = item;
+
                 let imgPath = 'https://via.placeholder.com/300x169?text=No+Image';
                 if (item.is_custom && item.backdrop_path) {
                     imgPath = item.backdrop_path;
@@ -2622,20 +2858,21 @@ const app = {
                 }
                 imgPath = app.utils.proxyImg(imgPath);
 
-                const isTop10 = false; // Removed as per user request
+                const isTop10 = idx < 3 && title.toLowerCase().includes('top');
                 let isNewSeason = Math.random() > 0.8;
 
-                // Disable New Season for movies
                 if (item.type === 'movie' || (item.title && item.title.includes('10 Things'))) {
                     isNewSeason = false;
                 }
 
-                const isOriginal = false; // Removed 'N' logo as per user request
+                const displayTitle = item.title || item.name || 'Untitled';
 
                 return `
-                    <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')">
-                        <img src="${imgPath}" alt="${item.title || item.name}" class="poster-img">
-                        ${isOriginal ? '<div class="netflix-original-logo">N</div>' : ''}
+                    <div class="poster" data-item-id="${item.id}" onclick="app.handlers.openDetailsById('${item.id}')">
+                        <img src="${imgPath}" alt="${displayTitle}" class="poster-img" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/300x169/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
+                        <div class="poster-title-overlay">
+                            <span class="poster-title-text">${displayTitle}</span>
+                        </div>
                         ${isTop10 ? '<div class="top-10-badge">TOP<br>10</div>' : ''}
                         ${isNewSeason ? '<div class="card-badge">New Season</div>' : ''}
                     </div>

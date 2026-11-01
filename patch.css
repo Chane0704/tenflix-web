@@ -328,3 +328,270 @@
     font-size: 0.88rem;
     color: #e5e5e5;
 }
+
+
+/* ===================================================
+   PRIME VIDEO STYLE HOVER CARD & TITLE IDENTIFICATION
+   =================================================== */
+
+/* Card container & title overlay */
+.row-posters .poster {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    background: #181b22;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease !important;
+}
+
+.row-posters .poster:hover {
+    transform: scale(1.05) !important;
+    z-index: 30 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85) !important;
+}
+
+.poster-title-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 26px 10px 8px;
+    background: linear-gradient(to top, rgba(12, 14, 18, 0.95) 0%, rgba(12, 14, 18, 0.6) 60%, transparent 100%);
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    z-index: 5;
+    transition: opacity 0.2s ease;
+}
+
+.poster-title-text {
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* Floating Prime Video Hover Preview Card */
+.prime-hover-card {
+    position: fixed;
+    z-index: 99999;
+    background: #14171d;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.95), 0 0 1px rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    animation: primePopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    pointer-events: auto;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+@keyframes primePopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.prime-hover-card.hidden {
+    display: none !important;
+}
+
+.hover-card-media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    cursor: pointer;
+    background: #000;
+}
+
+.hover-card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.hover-media-title-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 25px 14px 8px;
+    background: linear-gradient(to top, rgba(20, 23, 29, 0.95) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.hover-media-title-overlay span {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.hover-card-content {
+    padding: 14px 16px 18px;
+    color: #fff;
+}
+
+.hover-card-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 4px 0;
+    cursor: pointer;
+    line-height: 1.25;
+}
+
+.hover-card-title:hover {
+    color: #00a8e1;
+}
+
+.hover-included-badge {
+    font-size: 0.82rem;
+    color: #00a8e1;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.hover-included-badge i {
+    width: 15px;
+    height: 15px;
+    color: #00a8e1;
+}
+
+.hover-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.hover-btn-play {
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    border-radius: 24px;
+    padding: 7px 18px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.hover-btn-play:hover {
+    background: #e0e0e0;
+    transform: scale(1.04);
+}
+
+.hover-btn-play i {
+    width: 16px;
+    height: 16px;
+}
+
+.hover-btn-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.hover-btn-circle:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: #ffffff;
+    transform: scale(1.08);
+}
+
+.hover-btn-circle.active {
+    background: #00a8e1;
+    border-color: #00a8e1;
+    color: #ffffff;
+}
+
+.hover-btn-circle i {
+    width: 16px;
+    height: 16px;
+}
+
+.hover-card-rank {
+    font-size: 0.8rem;
+    color: #00a8e1;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.hover-card-rank i {
+    width: 14px;
+    height: 14px;
+}
+
+.hover-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #aaa;
+    margin-bottom: 8px;
+}
+
+.hover-meta-badge {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.hover-meta-cert {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    color: #ddd;
+}
+
+.hover-meta-text {
+    font-size: 0.82rem;
+    color: #bbb;
+}
+
+.hover-card-desc {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #bbbbbb;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
