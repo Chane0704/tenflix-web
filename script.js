@@ -897,6 +897,12 @@ const app = {
     init: async () => {
         console.log('Netflix Clone Initializing...');
 
+        // Failsafe: hide splash loader after max 2.5s no matter what happens
+        setTimeout(() => {
+            const l = document.getElementById('loader');
+            if (l && l.style.display !== 'none') l.style.display = 'none';
+        }, 2500);
+
         try {
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
