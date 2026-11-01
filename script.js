@@ -20,6 +20,16 @@ const app = {
     },
 
     utils: {
+        unfreezePage: () => {
+            document.documentElement.classList.remove('player-open', 'modal-open');
+            document.body.classList.remove('player-open', 'modal-open');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            document.documentElement.style.position = '';
+            document.body.style.position = '';
+            document.documentElement.style.height = '';
+            document.body.style.height = '';
+        },
         proxyImg: (url) => {
             if (!url) return '';
             // Proxy TMDB image domains through wsrv.nl to bypass ISP blocks
@@ -832,6 +842,47 @@ const app = {
         }
     },
 
+    initNavigationListeners: () => {
+        // Handle browser Back / Forward buttons without ever freezing the UI
+        window.addEventListener('popstate', (e) => {
+            if (window.isPlayerActive) {
+                app.handlers.closePlayer(false);
+            }
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer && !modalContainer.classList.contains('hidden')) {
+                app.handlers.closeDetails(false);
+            }
+            app.utils.unfreezePage();
+        });
+
+        // Handle URL hash changes
+        window.addEventListener('hashchange', (e) => {
+            if (window.isPlayerActive) {
+                app.handlers.closePlayer(false);
+            }
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer && !modalContainer.classList.contains('hidden')) {
+                app.handlers.closeDetails(false);
+            }
+            app.utils.unfreezePage();
+        });
+
+        // Handle Escape key
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (window.isPlayerActive) {
+                    app.handlers.closePlayer();
+                } else {
+                    const m = document.getElementById('modal-container');
+                    if (m && !m.classList.contains('hidden')) {
+                        app.handlers.closeDetails();
+                    }
+                }
+            }
+        });
+    },
+
+
     customTmdbMap: {
         'httyd_1': '10191',
         'httyd_2': '82702',
@@ -851,6 +902,7 @@ const app = {
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
             app.hoverCard.init();
+        app.audio.initNavigationListeners();
             // Safety check for Lucide
             if (typeof lucide === 'undefined') {
                 console.warn('Lucide icons not loaded. Icons will be missing.');
@@ -939,29 +991,40 @@ const app = {
             lucide.createIcons();
         },
 
-                openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1) => {
+                openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1, targetSeason = 1, targetEpisode = 1) => {
             if (app.hoverCard) app.hoverCard.hide();
+            window.isPlayerActive = true;
+            window.currentSeason = targetSeason;
+            window.currentEpisode = targetEpisode;
+
+            // Push history state so browser Back button cleanly exits player without freezing
+            try {
+                if (!history.state || !history.state.tenflixPlayer) {
+                    history.pushState({ tenflixPlayer: true }, '', window.location.href);
+                }
+            } catch(e) {}
+
+            document.documentElement.classList.add('player-open');
+            document.body.classList.add('player-open');
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+
             if (itemId) {
                 window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId);
             }
-            window.currentActiveServer = activeServer;
-            // Check if item is TMDB content without direct video URL
-            if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && window.currentItem && !window.currentItem.is_custom) {
-                const item = window.currentItem;
-                const isTv = item.media_type === 'tv' || item.first_air_date || item.name;
-                let seasonNum = 1;
-                let episodeNum = 1;
-                if (episodeIndex !== null && item.episodes && item.episodes[episodeIndex]) {
-                    seasonNum = item.episodes[episodeIndex].season || 1;
-                    episodeNum = item.episodes[episodeIndex].episode_number || (episodeIndex + 1);
+            const item = window.currentPlayingItem;
+            const isTv = item ? (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0)) : false;
+
+            // Enforce explicit season/episode for TV shows on VidLink
+            if (isTv && itemId) {
+                if (!videoUrl || videoUrl.includes('vidlink.pro') || videoUrl.trim() === '' || videoUrl === 'undefined') {
+                    videoUrl = `https://vidlink.pro/tv/${itemId}/${targetSeason}/${targetEpisode}?primaryColor=E50914&autoplay=false`;
                 }
-                const audioParams = '?primaryColor=E50914&autoplay=false';
-                videoUrl = isTv 
-                    ? `https://vidlink.pro/tv/${itemId}/${seasonNum}/${episodeNum}${audioParams}`
-                    : `https://vidlink.pro/movie/${itemId}${audioParams}`;
+            } else if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && item && !item.is_custom) {
+                videoUrl = `https://vidlink.pro/movie/${itemId}?primaryColor=E50914&autoplay=false`;
             }
 
-            // Enforce autoplay=false on VidLink so internal player does not hardcode mute: true
+            // Enforce autoplay=false and primaryColor on any VidLink URL
             if (videoUrl && videoUrl.includes('vidlink.pro')) {
                 if (videoUrl.includes('autoplay=true')) {
                     videoUrl = videoUrl.replace(/autoplay=true/g, 'autoplay=false');
@@ -975,360 +1038,160 @@ const app = {
 
             if (!videoUrl) return alert("No video URL available!");
 
-            // Helper to convert SRT to VTT
-            const srtToVtt = (srtText) => {
-                let vtt = "WEBVTT\n\n";
-                // Regex to match SRT time format: 00:00:20,000 --> 00:00:24,400
-                vtt += srtText.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
-                return vtt;
-            };
-
-            // Handle IDB Persistence for Video
-            if (videoUrl.startsWith('idb://')) {
-                const fileId = videoUrl.replace('idb://', '');
-                try {
-                    const blob = await app.storage.getFile(fileId);
-                    if (blob) {
-                        videoUrl = URL.createObjectURL(blob);
-                    } else {
-                        return alert("Video file not found in storage (it might have been deleted).");
-                    }
-                } catch (e) {
-                    console.error("Failed to load video from IDB", e);
-                    return alert("Error loading stored video.");
-                }
-            }
-
-            // Handle IDB Persistence for Captions & Conversion
-            if (captionUrl && captionUrl.startsWith('idb://')) {
-                const capId = captionUrl.replace('idb://', '');
-                try {
-                    const file = await app.storage.getFile(capId);
-                    if (file) {
-                        // Check for SRT
-                        if (file.name.toLowerCase().endsWith('.srt') || file.type.includes('subrip')) {
-                            const text = await file.text();
-                            const vttText = srtToVtt(text);
-                            const vttBlob = new Blob([vttText], { type: 'text/vtt' });
-                            captionUrl = URL.createObjectURL(vttBlob);
-                        } else {
-                            captionUrl = URL.createObjectURL(file);
-                        }
-                    }
-                } catch (e) { console.error("Failed to load caption", e); }
-            }
-
             const modal = document.getElementById('player-container');
             modal.classList.remove('hidden');
-            document.documentElement.classList.add('player-open');
-            document.body.classList.add('player-open');
-            document.documentElement.style.overflow = 'hidden';
-            document.body.style.overflow = 'hidden';
 
-            // 1. Process URLs first
-            // Handle Dropbox Links (Convert dl=0 -> dl=1 for Direct Stream)
-            let isDropboxStream = false;
+            // Handle Dropbox / OneDrive direct stream conversions
+            let isDirectFile = videoUrl.startsWith('blob:') || videoUrl.endsWith('.mp4') || videoUrl.endsWith('.m3u8') || videoUrl.endsWith('.webm');
             if (videoUrl.includes('dropbox.com')) {
                 videoUrl = videoUrl.replace('dl=0', 'dl=1');
-                isDropboxStream = true;
+                isDirectFile = true;
             }
-
-            // Handle OneDrive Links (Convert embed -> download)
-            let isOneDriveStream = false;
             if (videoUrl.includes('onedrive.live.com') || videoUrl.includes('1drv.ms')) {
                 videoUrl = videoUrl.replace('embed', 'download');
-                isOneDriveStream = true;
+                isDirectFile = true;
+            }
+            if (videoUrl.includes('drive.google.com') && videoUrl.includes('/view')) {
+                videoUrl = videoUrl.replace('/view', '/preview');
             }
 
-            // Handle Google Drive "Proxy" Attempt (Preview -> View)
-            // Handle Google Drive "Proxy" Attempt (Preview/View -> Download Stream)
-            // Handle Google Drive - Force "Preview" Mode (Standard Embed)
-            // This is the most reliable method. Proxies/Direct Downloads are blocked by CORS.
-            if (videoUrl.includes('drive.google.com')) {
-                // Ensure we use the embeddable /preview URL
-                if (videoUrl.includes('/view')) videoUrl = videoUrl.replace('/view', '/preview');
-                // Clean any query params like ?usp=drive_link which break embedding sometimes
-                /* keeping params mostly harmless but cleaning is safer if we want pure embed */
-            }
+            let iframeUrl = videoUrl;
+            const hasServer1 = item && item.video_url && item.video_url.includes('drive.google.com');
+            const showTitle = (item && (item.title || item.name)) || 'Playing on Tenflix';
+            const subTitle = isTv ? `Season ${targetSeason} • Ep ${targetEpisode}` : '';
 
-            // Determine if it's an iframe embed or direct video file or Blob URL
-            const isDirectFile = isDropboxStream || isOneDriveStream || videoUrl.startsWith('blob:') || videoUrl.endsWith('.mp4') || videoUrl.endsWith('.m3u8') || videoUrl.endsWith('.webm');
-
-            let isYoutube = false;
-            let ytVideoId = '';
-            if (!isDirectFile) {
-                if (videoUrl.includes('youtube.com/watch') || videoUrl.includes('youtu.be/') || videoUrl.includes('youtube.com/embed/')) {
-                    const tempUrl = new URL(videoUrl);
-                    if (videoUrl.includes('youtu.be/')) {
-                        ytVideoId = tempUrl.pathname.substring(1);
-                    } else if (videoUrl.includes('youtube.com/embed/')) {
-                        ytVideoId = tempUrl.pathname.split('/').pop();
-                    } else {
-                        ytVideoId = tempUrl.searchParams.get('v');
-                    }
-
-                    if (ytVideoId) isYoutube = true;
+            // Build In-Player Episodes Drawer HTML if TV series
+            let drawerHtml = '';
+            if (isTv && item) {
+                let seasons = (item.episodes && item.episodes.length > 0)
+                    ? [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b)
+                    : [1];
+                if (item.seasonsList && item.seasonsList.length > 0) {
+                    seasons = item.seasonsList.map(s => s.season_number);
                 }
-            }
+                const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == targetSeason);
 
-
-
-            let playerHtml;
-            if (isDirectFile) {
-                playerHtml = `
-                    <div id="video-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10; flex-direction:column; align-items:center; justify-content:center;">
-                        <h2 style="color:white; margin-bottom:20px;">Finished</h2>
-                        <button onclick="document.querySelector('video').play(); document.getElementById('video-overlay').style.display='none';" 
-                            style="padding:10px 20px; font-size:1.2rem; background:white; color:black; border:none; border-radius:4px; cursor:pointer;">
-                            Replay
-                        </button>
-                    </div>
-                    <video id="active-native-video" controls autoplay style="width: 100%; height: 100%;" crossorigin="anonymous" 
-                        onended="document.getElementById('video-overlay').style.display='flex';" 
-                        onplay="document.getElementById('video-overlay').style.display='none';"
-                        onerror="console.error('Video Error'); alert('Video Playback Error. decoding failed.');">
-                        <source src="${videoUrl}" type="video/mp4">
-                        ${captionUrl ? `<track label="English" kind="subtitles" srclang="en" src="${captionUrl}" default>` : ''}
-                        Your browser does not support the video tag.
-                    </video>
-                `;
-                modal.innerHTML = `
-                    <div class="video-player-container" style="width: 100%; height: 100%; background: black; position: relative; display: flex; align-items: center; justify-content: center;">
-                        <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
-                            <i data-lucide="x" width="40" height="40"></i>
-                        </button>
-                        ${playerHtml}
-                    </div>
-                `;
-                lucide.createIcons();
-                const nativeVid = modal.querySelector('video');
-                if (nativeVid) app.audio.applyToVideo(nativeVid);
-            } else if (isYoutube) {
-                // YouTube API Player for Custom Captions
-                modal.innerHTML = `
-                    <div class="video-player-container" style="width: 100%; height: 100%; background: black; position: relative; display: flex; align-items: center; justify-content: center;">
-                        <div style="position: absolute; top: 20px; right: 20px; z-index: 400; display: flex; gap: 10px;">
-                            <button id="toggle-custom-cc" style="background: rgba(0,0,0,0.5); border: 1px solid white; color: white; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" title="Toggle Custom Subtitles">
-                                <i data-lucide="captions" width="24" height="24"></i>
-                            </button>
-                            <button class="close-player" onclick="app.handlers.closePlayer()" style="background: none; border: none; color: white; cursor: pointer;">
-                                <i data-lucide="x" width="40" height="40"></i>
-                            </button>
-                        </div>
-                        <div id="yt-player-target" style="width:100%; height:100%;"></div>
-                        <div id="custom-subs" class="custom-subtitle-overlay"></div>
-                    </div>
-                `;
-                lucide.createIcons();
-
-                // Helper to parse VTT/SRT
-                const parseSubs = (text) => {
-                    const cues = [];
-                    const lines = text.split(/\r?\n/);
-                    let start = null, end = null, payload = [];
-                    lines.forEach(line => {
-                        if (line.includes('-->')) {
-                            const times = line.split('-->');
-                            const parseTime = (t) => {
-                                const parts = t.trim().split(':');
-                                let sec = 0;
-                                if (parts.length === 3) {
-                                    sec += parseFloat(parts[0]) * 3600;
-                                    sec += parseFloat(parts[1]) * 60;
-                                    sec += parseFloat(parts[2].replace(',', '.'));
-                                } else if (parts.length === 2) {
-                                    sec += parseFloat(parts[0]) * 60;
-                                    sec += parseFloat(parts[1].replace(',', '.'));
-                                } else if (parts.length === 1) { // Basic seconds check
-                                    sec += parseFloat(parts[0].replace(',', '.'));
-                                }
-                                return sec;
-                            };
-                            start = parseTime(times[0]);
-                            end = parseTime(times[1]);
-                        } else if (line.trim() === '' && start !== null) {
-                            cues.push({ s: start, e: end, t: payload.join('<br>') });
-                            start = null; payload = [];
-                        } else if (start !== null && !line.match(/^[0-9]+$/)) { // Skip index numbers
-                            payload.push(line);
-                        }
-                    });
-                    if (start !== null) cues.push({ s: start, e: end, t: payload.join('<br>') });
-                    return cues;
-                };
-
-                let subCues = [];
-                let areSubsEnabled = true;
-
-                // Load Subtitles
-                if (captionUrl) {
-                    fetch(captionUrl).then(r => r.text()).then(txt => {
-                        subCues = parseSubs(txt);
-                        console.log("Parsed " + subCues.length + " subtitles.");
-                    }).catch(e => console.error("Sub load err", e));
-                } else {
-                    document.getElementById('toggle-custom-cc').style.opacity = '0.3';
-                    areSubsEnabled = false;
-                }
-
-                // Handle Toggle Click
-                const toggleBtn = document.getElementById('toggle-custom-cc');
-                toggleBtn.addEventListener('click', () => {
-                    if (!captionUrl) return;
-                    areSubsEnabled = !areSubsEnabled;
-                    toggleBtn.style.background = areSubsEnabled ? 'rgba(0,128,0,0.5)' : 'rgba(0,0,0,0.5)';
-                    if (!areSubsEnabled) document.getElementById('custom-subs').classList.remove('active');
-                });
-                if (captionUrl) toggleBtn.style.background = 'rgba(0,128,0,0.5)';
-
-                // Load API
-                if (!window.YT) {
-                    const tag = document.createElement('script');
-                    tag.src = "https://www.youtube.com/iframe_api";
-                    const firstScriptTag = document.getElementsByTagName('script')[0];
-                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-                }
-
-                const initPlayer = () => {
-                    let player;
-                    let interval;
-                    player = new YT.Player('yt-player-target', {
-                        height: '100%',
-                        width: '100%',
-                        videoId: ytVideoId,
-                        playerVars: { 'autoplay': 1, 'controls': 1, 'cc_load_policy': 1, 'iv_load_policy': 3, 'modestbranding': 1, 'rel': 0 },
-                        events: {
-                            'onReady': (event) => {
-                                event.target.playVideo();
-                                interval = setInterval(() => {
-                                    if (player && player.getCurrentTime && areSubsEnabled) {
-                                        const time = player.getCurrentTime();
-                                        const cue = subCues.find(c => time >= c.s && time <= c.e);
-                                        const subDiv = document.getElementById('custom-subs');
-                                        if (cue) { subDiv.innerHTML = cue.t; subDiv.classList.add('active'); }
-                                        else { subDiv.classList.remove('active'); }
-                                    }
-                                }, 100);
-                            }
-                        }
-                    });
-
-                    app.activeYoutubePlayer = player;
-                    app.activeYoutubeInterval = interval;
-
-
-                    // Remove old listener logic, rely on global handler
-                    // document.getElementById('close-yt-player').addEventListener...
-                };
-
-                if (window.YT && window.YT.Player) { initPlayer(); } else { window.onYouTubeIframeAPIReady = initPlayer; }
-
-            } else {
-                let iframeUrl = videoUrl;
-                // Clean Google Drive URLs
-                // Clean Google Drive URLs
-                const isDrive = iframeUrl.includes('drive.google.com');
-
-                if (isDrive) {
-                    if (iframeUrl.includes('/view')) {
-                        iframeUrl = iframeUrl.replace('/view', '/preview');
-                    }
-
-                    // broader detection for mobile/tablet to include iPads
-                    const isMobileApp = (window.innerWidth < 1025) || (navigator.maxTouchPoints > 0);
-
-                    if (isMobileApp) {
-                        const separator = iframeUrl.includes('?') ? '&' : '?';
-                        iframeUrl += separator + 'autoplay=1&vq=hd1080';
-                    } else {
-                        const separator = iframeUrl.includes('?') ? '&' : '?';
-                        iframeUrl += separator + 'autoplay=1&vq=hd1080&cc_load_policy=1';
-                    }
-                }
-
-                if (isDrive) {
-                    const hasServer2 = window.currentPlayingItem && (app.customTmdbMap[window.currentPlayingItem.id] || window.currentPlayingItem.id);
-                    modal.innerHTML = `
-                        <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
-                            <i data-lucide="x" width="30" height="30"></i>
-                        </button>
-                        ${hasServer2 ? `
-                            <div class="player-server-bar">
-                                <button class="server-btn active" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
-                                <button class="server-btn" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
+                drawerHtml = `
+                    <div id="player-episodes-drawer" class="player-episodes-drawer hidden">
+                        <div class="episodes-drawer-header">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <select class="episodes-drawer-select" onchange="app.handlers.switchDrawerSeason(this, '${item.id}')">
+                                    ${seasons.map(s => `<option value="${s}" ${s == targetSeason ? 'selected' : ''}>Season ${s}</option>`).join('')}
+                                </select>
+                                <span id="drawer-ep-count" style="color:#aaa; font-size:0.85rem;">${currentEpisodes.length} Episodes</span>
                             </div>
-                        ` : ''}
-                        <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
-                            <iframe src="${iframeUrl}" 
-                                frameborder="0" 
-                                referrerpolicy="no-referrer" 
-                                allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
-                                playsinline 
-                                allowfullscreen 
-                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; -webkit-tap-highlight-color: transparent; border: none; pointer-events: auto;">
-                            </iframe>
+                            <button class="player-control-btn player-close-btn" onclick="app.handlers.toggleEpisodesDrawer()" style="width:36px; height:36px;" title="Close Episodes Drawer">
+                                <i data-lucide="x" style="width:18px; height:18px;"></i>
+                            </button>
                         </div>
-                    `;
-                    if (window.lucide) lucide.createIcons();
-                } else if (iframeUrl.includes('vidlink.pro') || iframeUrl.includes('vidsrc') || iframeUrl.includes('vidking.net') || iframeUrl.includes('/embed')) {
-                    const hasServer1 = window.currentPlayingItem && window.currentPlayingItem.video_url && window.currentPlayingItem.video_url.includes('drive.google.com');
-                    modal.innerHTML = `
-                        <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
-                            <i data-lucide="x" width="30" height="30"></i>
+                        <div class="episodes-drawer-list" id="drawer-ep-list">
+                            ${currentEpisodes.map((ep, idx) => {
+                                const epNum = ep.episode_number || (idx + 1);
+                                const isPlaying = (ep.season || 1) == targetSeason && epNum == targetEpisode;
+                                let img = ep.still_path || ep.img || '';
+                                if (img && !img.startsWith('http')) img = 'https://image.tmdb.org/t/p/w300' + img;
+                                img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
+
+                                return `
+                                    <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, 1, ${ep.season || targetSeason}, ${epNum})">
+                                        <div class="drawer-ep-thumb" style="background-image: url('${img}');">
+                                            ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
+                                        </div>
+                                        <div class="drawer-ep-info">
+                                            <div class="drawer-ep-title">${ep.title || 'Episode ' + epNum}</div>
+                                            <div class="drawer-ep-meta">${ep.runtime ? ep.runtime + 'm' : ''}</div>
+                                            <div class="drawer-ep-desc">${ep.overview ? ep.overview.substring(0, 80) + '...' : ''}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Top Bar with prominent Back button, Show Title, Episodes Selector, and Close (X) button
+            const topBarHtml = `
+                <div class="player-top-bar" id="player-top-bar">
+                    <div class="player-top-left">
+                        <button class="player-control-btn player-back-btn" onclick="app.handlers.closePlayer()" title="Back to Tenflix">
+                            <i data-lucide="arrow-left"></i>
+                            <span>Back</span>
                         </button>
+                        <div class="player-title-info">
+                            <span class="player-main-title">${showTitle}</span>
+                            ${subTitle ? `<span class="player-sub-title">${subTitle}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="player-top-right">
+                        ${isTv ? `
+                            <button class="player-control-btn" onclick="app.handlers.toggleEpisodesDrawer()" title="Select Season & Episode">
+                                <i data-lucide="layers"></i>
+                                <span>Episodes</span>
+                            </button>
+                            <button class="player-control-btn" onclick="app.handlers.playNextEpisode('${item ? item.id : itemId}', ${targetSeason}, ${targetEpisode})" title="Next Episode">
+                                <span>Next</span>
+                                <i data-lucide="skip-forward"></i>
+                            </button>
+                        ` : ''}
                         ${hasServer1 ? `
                             <div class="player-server-bar">
-                                <button class="server-btn" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
-                                <button class="server-btn active" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
+                                <button class="server-btn ${activeServer === 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
+                                <button class="server-btn ${activeServer === 2 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
                             </div>
                         ` : ''}
-                        <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
-                            <iframe id="main-player-iframe" src="${iframeUrl}" 
-                                frameborder="0" 
-                                allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
-                                allowfullscreen 
-                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
-                            </iframe>
-                        </div>
-                    `;
-                    if (window.lucide) lucide.createIcons();
-                } else {
-                    // Native Video Support (MP4, etc.)
-                    modal.innerHTML = `
-                         <button class="close-player" onclick="app.handlers.closePlayer()" 
-                            style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.5); border-radius: 50%; padding: 10px; border: none; color: white; cursor: pointer; pointer-events: auto;">
-                            <i data-lucide="x" width="30" height="30"></i>
-                         </button>
-                         <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
-                            <div id="video-overlay-fallback" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:3001; flex-direction:column; align-items:center; justify-content:center;">
-                                <h2 style="color:white; margin-bottom:20px;">Finished</h2>
-                                <button onclick="document.querySelector('video').play(); document.getElementById('video-overlay-fallback').style.display='none';" 
-                                    style="padding:10px 20px; font-size:1.2rem; background:white; color:black; border:none; border-radius:4px; cursor:pointer;">
-                                    Replay
-                                </button>
-                            </div>
-                            <video src="${iframeUrl}" controls autoplay playsinline
-                                onended="document.getElementById('video-overlay-fallback').style.display='flex';"
-                                onplay="document.getElementById('video-overlay-fallback').style.display='none';"
-                                onerror="console.error('Fallback Video Error'); alert('Playback Error: Stream failed or format not supported.');"
-                                style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%; width: auto; height: auto; transform: translate(-50%, -50%); object-fit: cover;">
-                            </video>
-                         </div>
-                    `;
-                }
-                if (window.lucide) window.lucide.createIcons();
-            }
-        },
+                        <button class="player-control-btn player-close-btn" onclick="app.handlers.closePlayer()" title="Close Player (Esc)">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
 
+            if (isDirectFile) {
+                modal.innerHTML = `
+                    <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; overflow: hidden;">
+                        <video id="active-native-video" controls autoplay style="width: 100%; height: 100%; object-fit: contain;" crossorigin="anonymous">
+                            <source src="${videoUrl}" type="video/mp4">
+                            ${captionUrl ? `<track label="English" kind="subtitles" srclang="en" src="${captionUrl}" default>` : ''}
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    ${topBarHtml}
+                    ${drawerHtml}
+                `;
+                const nativeVid = modal.querySelector('video');
+                if (nativeVid) app.audio.applyToVideo(nativeVid);
+            } else {
+                modal.innerHTML = `
+                    <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; overflow: hidden;">
+                        <iframe id="main-player-iframe" src="${iframeUrl}" 
+                            frameborder="0" 
+                            allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
+                            allowfullscreen 
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
+                        </iframe>
+                    </div>
+                    ${topBarHtml}
+                    ${drawerHtml}
+                `;
+            }
+
+            if (window.lucide) lucide.createIcons();
+        },
         openDetails: async (item) => {
             if (app.hoverCard) app.hoverCard.hide();
             document.documentElement.classList.add('modal-open');
             document.body.classList.add('modal-open');
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+
+            // Push history state so browser Back button closes modal without freezing
+            try {
+                if (!history.state || !history.state.tenflixModal) {
+                    history.pushState({ tenflixModal: true }, '', window.location.href);
+                }
+            } catch(e) {}
+
             try {
                 const modal = document.getElementById('modal-container');
                 modal.classList.remove('hidden');
@@ -1345,16 +1208,49 @@ const app = {
                 imgUrl = app.utils.proxyImg(imgUrl);
                 posterUrl = app.utils.proxyImg(posterUrl);
 
+                // TV Show Detection
+                const isTv = item.media_type === 'tv' || item.first_air_date || item.name || (item.episodes && item.episodes.length > 0);
+
+                // If TMDB TV series without loaded episodes, fetch seasons list and Season 1 episodes dynamically!
+                if (isTv && (!item.episodes || item.episodes.length === 0) && item.id && !item.is_custom) {
+                    try {
+                        const showData = await app.services.fetchTmdb(`/tv/${item.id}`);
+                        if (showData) {
+                            if (showData.seasons && Array.isArray(showData.seasons)) {
+                                item.seasonsList = showData.seasons.filter(s => s.season_number > 0);
+                                if (item.seasonsList.length === 0) item.seasonsList = showData.seasons;
+                            }
+                            const s1Num = (item.seasonsList && item.seasonsList[0]) ? item.seasonsList[0].season_number : 1;
+                            const s1Data = await app.services.fetchTmdb(`/tv/${item.id}/season/${s1Num}`);
+                            if (s1Data && s1Data.episodes && Array.isArray(s1Data.episodes)) {
+                                item.episodes = s1Data.episodes.map(ep => ({
+                                    season: s1Num,
+                                    episode_number: ep.episode_number,
+                                    title: ep.name ? `${ep.episode_number}. ${ep.name}` : `Episode ${ep.episode_number}`,
+                                    overview: ep.overview,
+                                    runtime: ep.runtime ? String(ep.runtime) : '45',
+                                    still_path: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : '',
+                                    video_url: ''
+                                }));
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Could not load seasons from TMDB', err);
+                    }
+                }
+
                 // Episode Logic
                 const hasEpisodes = item.episodes && item.episodes.length > 0;
-                // Get unique seasons, sort them
-                const seasons = hasEpisodes ? [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b) : [];
+                let seasons = hasEpisodes ? [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b) : [];
+                if (item.seasonsList && item.seasonsList.length > 0) {
+                    seasons = item.seasonsList.map(s => s.season_number);
+                }
                 const currentSeason = seasons.length > 0 ? seasons[0] : 1;
 
                 // Build HTML
                 modal.innerHTML = `
                     <div class="modal-content">
-                        <div class="close-modal" onclick="document.getElementById('modal-container').classList.add('hidden'); document.documentElement.classList.remove('modal-open'); document.body.classList.remove('modal-open'); document.documentElement.style.overflow = ''; document.body.style.overflow = ''; if (app.hoverCard) app.hoverCard.hide();">
+                        <div class="close-modal" onclick="app.handlers.closeDetails()">
                             <i data-lucide="x"></i>
                         </div>
                         
@@ -1419,11 +1315,11 @@ const app = {
                             <div id="tab-episodes" class="tab-content ${!hasEpisodes ? 'hidden' : ''}">
                                 ${hasEpisodes ? `
                                     <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                                        <select style="background: #333; color: white; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; font-size: 1.1rem; cursor: pointer;"
+                                        <select style="background: #232733; color: white; padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; font-size: 1.1rem; cursor: pointer; outline: none; font-weight: 600;"
                                             onchange="app.handlers.switchSeason(this, '${item.id}')">
                                             ${seasons.map(s => `<option value="${s}">Season ${s}</option>`).join('')}
                                         </select>
-                                        <span id="season-ep-count" style="color: #777; font-size: 0.9rem;">${item.episodes.filter(e => (e.season || 1) == currentSeason).length} Episodes</span>
+                                        <span id="season-ep-count" style="color: #aaa; font-size: 0.95rem;">${(item.episodes || []).filter(e => (e.season || 1) == currentSeason).length} Episodes</span>
                                     </div>
                                 ` : ''}
 
@@ -1444,14 +1340,16 @@ const app = {
 
                 // Store current item for playMain fallback
                 window.currentItem = item;
+                if (item.id) {
+                    window.appItemMap = window.appItemMap || {};
+                    window.appItemMap[item.id] = item;
+                }
 
-            } catch (e) {
-                console.error("Error opening details:", e);
-                alert("Could not open details. See console.");
+            } catch (error) {
+                console.error("Failed to open modal:", error);
             }
         }
     },
-
     handlers: {
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
@@ -1831,21 +1729,48 @@ const app = {
                 alert("Video not available for this title.");
             }
         },
-        switchSeason: (ele, itemId) => {
+        switchSeason: async (ele, itemId) => {
             const season = parseInt(ele.value);
-            let item = app.state.customContent.find(i => i.id == itemId);
-            if (!item) {
-                const all = [...app.state.tmdbContent.trending, ...app.state.tmdbContent.topRated, ...app.state.tmdbContent.action];
-                item = all.find(i => i.id == itemId);
-            }
-            if (item) {
-                document.querySelector('.episode-list').innerHTML = app.components.renderEpisodeList(item, season);
-                app.services.populateDurations(item, season);
-                // Update the episode count text next to dropdown
-                const countSpan = document.getElementById('season-ep-count');
-                if (countSpan) {
-                    countSpan.textContent = item.episodes.filter(e => (e.season || 1) == season).length + ' Episodes';
+            let item = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem;
+            if (!item) return;
+
+            const listContainer = document.querySelector('.episode-list');
+            const countSpan = document.getElementById('season-ep-count');
+
+            const hasSeasonLoaded = item.episodes && item.episodes.some(e => (e.season || 1) == season);
+
+            if (!hasSeasonLoaded && !item.is_custom && itemId) {
+                if (listContainer) {
+                    listContainer.innerHTML = '<div style="padding:40px; text-align:center; color:#aaa;"><i data-lucide="loader" class="spin"></i> Loading Season ' + season + ' episodes...</div>';
+                    if (window.lucide) lucide.createIcons();
                 }
+                try {
+                    const seasonData = await app.services.fetchTmdb('/tv/' + itemId + '/season/' + season);
+                    if (seasonData && seasonData.episodes && Array.isArray(seasonData.episodes)) {
+                        const newEps = seasonData.episodes.map(ep => ({
+                            season: season,
+                            episode_number: ep.episode_number,
+                            title: ep.name ? (ep.episode_number + '. ' + ep.name) : ('Episode ' + ep.episode_number),
+                            overview: ep.overview || '',
+                            runtime: ep.runtime ? String(ep.runtime) : '45',
+                            still_path: ep.still_path ? (ep.still_path.startsWith('http') ? ep.still_path : ('https://image.tmdb.org/t/p/w500' + ep.still_path)) : '',
+                            video_url: ''
+                        }));
+                        item.episodes = (item.episodes || []).filter(e => (e.season || 1) != season).concat(newEps);
+                    }
+                } catch (err) {
+                    console.warn("Could not fetch season " + season, err);
+                }
+            }
+
+            if (listContainer) {
+                listContainer.innerHTML = app.components.renderEpisodeList(item, season);
+                app.services.populateDurations(item, season);
+                if (window.lucide) lucide.createIcons();
+            }
+            if (countSpan) {
+                const count = (item.episodes || []).filter(e => (e.season || 1) == season).length;
+                countSpan.textContent = count + ' Episodes';
             }
         },
 
@@ -2136,12 +2061,23 @@ const app = {
             window.location.hash = `edit=${id}`;
         },
 
-        closePlayer: () => {
+        closeDetails: (shouldPopHistory = true) => {
+            const modal = document.getElementById('modal-container');
+            if (modal) modal.classList.add('hidden');
+            app.utils.unfreezePage();
+            if (app.hoverCard) app.hoverCard.hide();
+            if (shouldPopHistory && history.state && history.state.tenflixModal) {
+                try { history.back(); } catch (e) {}
+            }
+        },
+
+        closePlayer: (shouldPopHistory = true) => {
+            window.isPlayerActive = false;
             const modal = document.getElementById('player-container');
 
             // cleanup YouTube
             if (app.activeYoutubePlayer && app.activeYoutubePlayer.destroy) {
-                try { app.activeYoutubePlayer.destroy(); } catch (e) { }
+                try { app.activeYoutubePlayer.destroy(); } catch (e) {}
             }
             if (app.activeYoutubeInterval) {
                 clearInterval(app.activeYoutubeInterval);
@@ -2149,15 +2085,107 @@ const app = {
             app.activeYoutubePlayer = null;
             app.activeYoutubeInterval = null;
 
-            document.documentElement.classList.remove('player-open');
-            document.body.classList.remove('player-open');
-            document.documentElement.classList.remove('modal-open');
-            document.body.classList.remove('modal-open');
-            document.documentElement.style.overflow = '';
-            document.body.style.overflow = '';
+            app.utils.unfreezePage();
             if (app.hoverCard) app.hoverCard.hide();
-            modal.classList.add('hidden');
-            modal.innerHTML = '';
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.innerHTML = '';
+            }
+
+            if (shouldPopHistory && history.state && history.state.tenflixPlayer) {
+                try { history.back(); } catch (e) {}
+            }
+        },
+
+        toggleEpisodesDrawer: () => {
+            const drawer = document.getElementById('player-episodes-drawer');
+            if (!drawer) return;
+            drawer.classList.toggle('hidden');
+            if (window.lucide) lucide.createIcons();
+        },
+
+        switchDrawerSeason: async (selectEle, itemId) => {
+            const season = parseInt(selectEle.value);
+            let item = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem || window.currentPlayingItem;
+            if (!item) return;
+
+            const drawerList = document.getElementById('drawer-ep-list');
+            const drawerCount = document.getElementById('drawer-ep-count');
+
+            const hasSeasonLoaded = item.episodes && item.episodes.some(e => (e.season || 1) == season);
+            if (!hasSeasonLoaded && !item.is_custom && itemId) {
+                if (drawerList) {
+                    drawerList.innerHTML = '<div style="padding:30px; text-align:center; color:#888;">Loading Season ' + season + '...</div>';
+                }
+                try {
+                    const seasonData = await app.services.fetchTmdb('/tv/' + itemId + '/season/' + season);
+                    if (seasonData && seasonData.episodes && Array.isArray(seasonData.episodes)) {
+                        const newEps = seasonData.episodes.map(ep => ({
+                            season: season,
+                            episode_number: ep.episode_number,
+                            title: ep.name ? (ep.episode_number + '. ' + ep.name) : ('Episode ' + ep.episode_number),
+                            overview: ep.overview || '',
+                            runtime: ep.runtime ? String(ep.runtime) : '45',
+                            still_path: ep.still_path ? (ep.still_path.startsWith('http') ? ep.still_path : ('https://image.tmdb.org/t/p/w500' + ep.still_path)) : '',
+                            video_url: ''
+                        }));
+                        item.episodes = (item.episodes || []).filter(e => (e.season || 1) != season).concat(newEps);
+                    }
+                } catch (err) {
+                    console.warn("Could not fetch season " + season, err);
+                }
+            }
+
+            const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == season);
+            if (drawerCount) drawerCount.textContent = currentEpisodes.length + ' Episodes';
+
+            if (drawerList) {
+                drawerList.innerHTML = currentEpisodes.map((ep, idx) => {
+                    const epNum = ep.episode_number || (idx + 1);
+                    const isPlaying = (ep.season || 1) == (window.currentSeason || 1) && epNum == (window.currentEpisode || 1);
+                    let img = ep.still_path || ep.img || '';
+                    if (img && !img.startsWith('http')) img = 'https://image.tmdb.org/t/p/w300' + img;
+                    img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
+
+                    return `
+                        <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, 1, ${ep.season || season}, ${epNum})">
+                            <div class="drawer-ep-thumb" style="background-image: url('${img}');">
+                                ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
+                            </div>
+                            <div class="drawer-ep-info">
+                                <div class="drawer-ep-title">${ep.title || 'Episode ' + epNum}</div>
+                                <div class="drawer-ep-meta">${ep.runtime ? ep.runtime + 'm' : ''}</div>
+                                <div class="drawer-ep-desc">${ep.overview ? ep.overview.substring(0, 80) + '...' : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                if (window.lucide) lucide.createIcons();
+            }
+        },
+
+        playNextEpisode: (itemId, currentSeason, currentEpisode) => {
+            const item = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem || window.currentPlayingItem;
+            if (!item) return;
+
+            let targetSeason = currentSeason;
+            let targetEpisode = currentEpisode + 1;
+
+            const currentSeasonEps = (item.episodes || []).filter(e => (e.season || 1) == currentSeason);
+            if (currentSeasonEps.length > 0 && targetEpisode > currentSeasonEps.length) {
+                if (item.seasonsList && item.seasonsList.length > 0) {
+                    const nextSeasonObj = item.seasonsList.find(s => s.season_number > currentSeason);
+                    if (nextSeasonObj) {
+                        targetSeason = nextSeasonObj.season_number;
+                        targetEpisode = 1;
+                    } else {
+                        alert("You've reached the last episode of the series!");
+                        return;
+                    }
+                }
+            }
+
+            app.router.openPlayer(null, null, itemId, null, 1, targetSeason, targetEpisode);
         },
         toggleUploadMethod: (method) => {
             const urlForm = document.getElementById('method-url');
@@ -3136,17 +3164,18 @@ const app = {
                 }
                 imgUrl = app.utils.proxyImg(imgUrl);
                 const epId = 'ep-dur-' + item.id + '-' + index;
+                const epNum = ep.episode_number || (filteredIndex + 1);
 
                 return `
-                    <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index})">
-                        <div class="episode-number">${filteredIndex + 1}</div>
+                    <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index}, 1, ${ep.season || season}, ${epNum})">
+                        <div class="episode-number">${epNum}</div>
                         <div class="episode-thumbnail" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
                         <div class="episode-info">
                             <div style="display:flex; justify-content:space-between; width:100%;">
-                                <div class="episode-title">${ep.title || 'Episode ' + (index + 1)}</div>
-                                <div id="${epId}" style="font-size: 0.9rem; color: #777;">${ep.runtime ? ep.runtime + 'm' : '--m'}</div>
+                                <div class="episode-title">${ep.title || 'Episode ' + epNum}</div>
+                                <div id="${epId}" style="font-size: 0.9rem; color: #aaa;">${ep.runtime ? ep.runtime + 'm' : ''}</div>
                             </div>
-                            <div class="episode-desc">${ep.overview || 'No description available for this episode.'}</div>
+                            <div class="episode-overview" style="color: #999; font-size: 0.85rem; margin-top: 5px;">${ep.overview || ''}</div>
                         </div>
                     </div>
                 `;
@@ -3218,7 +3247,7 @@ const app = {
                 const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
-                    return data.results || [];
+                    return data.results !== undefined ? data.results : data;
                 }
             } catch (e) {
                 console.warn("Direct TMDB Fetch Error:", e);
