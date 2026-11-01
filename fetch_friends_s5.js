@@ -1,7 +1,7 @@
 
 const https = require('https');
 
-const BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkNTgyYTViZjExMzYxZjk3ZjI5NDZjYmIxY2M1NWNlOCIsIm5iZiI6MTc2ODI0MTU5MS43ODcwMDAyLCJzdWIiOiI2OTY1MzliNzA4ZDVkZWIzNzJkNGYyZTgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.Ive1s9eS7xNXn-d9k_iD3uThBcxrlyYdD1zMj1wQDFM';
+const BEARER_TOKEN = process.env.BEARER_TOKEN || process.env.TMDB_BEARER_TOKEN || "";
 const SERIES_ID = 1668; // Friends
 const SEASON = 5;
 

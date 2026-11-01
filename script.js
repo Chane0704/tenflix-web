@@ -15,7 +15,7 @@ const app = {
             tmdbBaseUrl: 'https://api.themoviedb.org/3',
             imageBaseUrl: 'https://image.tmdb.org/t/p/w500',
             backdropBaseUrl: 'https://image.tmdb.org/t/p/original',
-            apiKey: localStorage.getItem('netflix_tmdb_key') || 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkNTgyYTViZjExMzYxZjk3ZjI5NDZjYmIxY2M1NWNlOCIsIm5iZiI6MTc2ODI0MTU5MS43ODcwMDAyLCJzdWIiOiI2OTY1MzliNzA4ZDVkZWIzNzJkNGYyZTgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.Ive1s9eS7xNXn-d9k_iD3uThBcxrlyYdD1zMj1wQDFM'
+            apiKey: localStorage.getItem('netflix_tmdb_key') || 'd582a5bf11361f97f2946cbb1cc55ce8'
         }
     },
 
