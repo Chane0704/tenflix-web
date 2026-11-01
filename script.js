@@ -1935,7 +1935,7 @@ const app = {
                                         <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; color: #aaa;">
                                             <span>${item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : '2024')}</span>
                                             <span style="border: 1px solid #555; padding: 1px 4px; border-radius: 2px; font-size: 0.6rem;">HD</span>
-                                            <span style="color: #46d369; margin-left: auto; font-size: 0.75rem;">${Math.round((item.vote_average || 7.5) * 10)}% Match</span>
+                                            
                                         </div>
                                     </div>
                                 </div>
@@ -2270,3 +2270,4 @@ const app = {
 };
 
 document.addEventListener('DOMContentLoaded', app.init);
+
