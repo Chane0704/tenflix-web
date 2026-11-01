@@ -839,49 +839,48 @@ const app = {
                     }
                 } catch (e) {}
             });
-        }
-    },
+        },
 
-    initNavigationListeners: () => {
-        // Handle browser Back / Forward buttons without ever freezing the UI
-        window.addEventListener('popstate', (e) => {
-            if (window.isPlayerActive) {
-                app.handlers.closePlayer(false);
-            }
-            const modalContainer = document.getElementById('modal-container');
-            if (modalContainer && !modalContainer.classList.contains('hidden')) {
-                app.handlers.closeDetails(false);
-            }
-            app.utils.unfreezePage();
-        });
-
-        // Handle URL hash changes
-        window.addEventListener('hashchange', (e) => {
-            if (window.isPlayerActive) {
-                app.handlers.closePlayer(false);
-            }
-            const modalContainer = document.getElementById('modal-container');
-            if (modalContainer && !modalContainer.classList.contains('hidden')) {
-                app.handlers.closeDetails(false);
-            }
-            app.utils.unfreezePage();
-        });
-
-        // Handle Escape key
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
+        initNavigationListeners: () => {
+            // Handle browser Back / Forward buttons without ever freezing the UI
+            window.addEventListener('popstate', (e) => {
                 if (window.isPlayerActive) {
-                    app.handlers.closePlayer();
-                } else {
-                    const m = document.getElementById('modal-container');
-                    if (m && !m.classList.contains('hidden')) {
-                        app.handlers.closeDetails();
+                    app.handlers.closePlayer(false);
+                }
+                const modalContainer = document.getElementById('modal-container');
+                if (modalContainer && !modalContainer.classList.contains('hidden')) {
+                    app.handlers.closeDetails(false);
+                }
+                app.utils.unfreezePage();
+            });
+
+            // Handle URL hash changes
+            window.addEventListener('hashchange', (e) => {
+                if (window.isPlayerActive) {
+                    app.handlers.closePlayer(false);
+                }
+                const modalContainer = document.getElementById('modal-container');
+                if (modalContainer && !modalContainer.classList.contains('hidden')) {
+                    app.handlers.closeDetails(false);
+                }
+                app.utils.unfreezePage();
+            });
+
+            // Handle Escape key
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (window.isPlayerActive) {
+                        app.handlers.closePlayer();
+                    } else {
+                        const m = document.getElementById('modal-container');
+                        if (m && !m.classList.contains('hidden')) {
+                            app.handlers.closeDetails();
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     },
-
 
     customTmdbMap: {
         'httyd_1': '10191',
@@ -902,7 +901,9 @@ const app = {
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
             app.hoverCard.init();
-        app.audio.initNavigationListeners();
+        if (app.audio && typeof app.audio.initNavigationListeners === 'function') {
+                app.audio.initNavigationListeners();
+            }
             // Safety check for Lucide
             if (typeof lucide === 'undefined') {
                 console.warn('Lucide icons not loaded. Icons will be missing.');
