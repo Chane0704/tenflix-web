@@ -902,7 +902,11 @@ const app = {
             const playerModal = document.getElementById('player-container');
             if (playerModal) {
                 playerModal.classList.add('hidden');
-                playerModal.innerHTML = ''; // cleanup video processing
+                playerModal.innerHTML = '';
+                document.documentElement.classList.remove('player-open');
+                document.body.classList.remove('player-open');
+                document.documentElement.style.overflow = '';
+                document.body.style.overflow = '';
             }
             window.scrollTo(0, 0);
 
@@ -1016,6 +1020,10 @@ const app = {
 
             const modal = document.getElementById('player-container');
             modal.classList.remove('hidden');
+            document.documentElement.classList.add('player-open');
+            document.body.classList.add('player-open');
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
 
             // 1. Process URLs first
             // Handle Dropbox Links (Convert dl=0 -> dl=1 for Direct Stream)
@@ -1259,7 +1267,7 @@ const app = {
                                 allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
                                 playsinline 
                                 allowfullscreen 
-                                style="position: absolute; top: 50%; left: 50%; width: 100vw; height: 100vh; transform: translate(-50%, -50%); -webkit-tap-highlight-color: transparent; border: none; pointer-events: auto;">
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; -webkit-tap-highlight-color: transparent; border: none; pointer-events: auto;">
                             </iframe>
                         </div>
                     `;
@@ -1317,7 +1325,10 @@ const app = {
 
         openDetails: async (item) => {
             if (app.hoverCard) app.hoverCard.hide();
+            document.documentElement.classList.add('modal-open');
             document.body.classList.add('modal-open');
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
             try {
                 const modal = document.getElementById('modal-container');
                 modal.classList.remove('hidden');
@@ -1343,7 +1354,7 @@ const app = {
                 // Build HTML
                 modal.innerHTML = `
                     <div class="modal-content">
-                        <div class="close-modal" onclick="document.getElementById('modal-container').classList.add('hidden'); document.body.classList.remove('modal-open'); if (app.hoverCard) app.hoverCard.hide();">
+                        <div class="close-modal" onclick="document.getElementById('modal-container').classList.add('hidden'); document.documentElement.classList.remove('modal-open'); document.body.classList.remove('modal-open'); document.documentElement.style.overflow = ''; document.body.style.overflow = ''; if (app.hoverCard) app.hoverCard.hide();">
                             <i data-lucide="x"></i>
                         </div>
                         
@@ -2138,7 +2149,12 @@ const app = {
             app.activeYoutubePlayer = null;
             app.activeYoutubeInterval = null;
 
+            document.documentElement.classList.remove('player-open');
+            document.body.classList.remove('player-open');
+            document.documentElement.classList.remove('modal-open');
             document.body.classList.remove('modal-open');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
             if (app.hoverCard) app.hoverCard.hide();
             modal.classList.add('hidden');
             modal.innerHTML = '';

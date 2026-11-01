@@ -152,12 +152,12 @@
             <!-- Modals -->
             <!-- Details Modal (Episode List, etc.) -->
             <div id="modal-container" class="modal-container hidden"
-                onclick="if(event.target === this) { document.getElementById('modal-container').classList.add('hidden'); document.body.classList.remove('modal-open'); if (window.app && app.hoverCard) app.hoverCard.hide(); }">
+                onclick="if(event.target === this) { document.getElementById('modal-container').classList.add('hidden'); document.documentElement.classList.remove('modal-open'); document.body.classList.remove('modal-open'); document.documentElement.style.overflow = ''; document.body.style.overflow = ''; if (window.app && app.hoverCard) app.hoverCard.hide(); }">
             </div>
 
             <!-- Video Player Overlay (Higher Z-Index) -->
             <div id="player-container" class="modal-container hidden"
-                style="z-index: 3000; background: black; padding: 0 !important; margin: 0 !important; width: 100vw !important; height: 100vh !important; display: flex; align-items: center; justify-content: center;"
+                style="z-index: 999999; background: black; padding: 0 !important; margin: 0 !important; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex; align-items: center; justify-content: center;"
                 onclick="if(event.target === this) app.handlers.closePlayer()"></div>
 
             <!-- Prime Video Style Floating Hover Card Portal -->
@@ -217,9 +217,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=UNMUTED_CLEAN_HOVER_V3">
+    <link rel="stylesheet" href="patch.css?v=SCROLLBAR_FREE_PLAYER_V4">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=UNMUTED_CLEAN_HOVER_V3" defer></script>
+    <script src="script.js?v=SCROLLBAR_FREE_PLAYER_V4" defer></script>
 </body>
 
 </html>
