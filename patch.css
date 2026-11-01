@@ -379,7 +379,7 @@
 /* Floating Prime Video Hover Preview Card */
 .prime-hover-card {
     position: fixed;
-    z-index: 99999;
+    z-index: 850;
     background: #14171d;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 10px;
@@ -401,8 +401,14 @@
     }
 }
 
-.prime-hover-card.hidden {
+.prime-hover-card.hidden,
+#modal-container:not(.hidden) ~ #prime-hover-card,
+#player-container:not(.hidden) ~ #prime-hover-card,
+#legal-modal:not(.hidden) ~ #prime-hover-card {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 .hover-card-media {
@@ -421,26 +427,7 @@
     display: block;
 }
 
-.hover-media-title-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 25px 14px 8px;
-    background: linear-gradient(to top, rgba(20, 23, 29, 0.95) 0%, transparent 100%);
-    pointer-events: none;
-}
-
-.hover-media-title-overlay span {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #ffffff;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-}
+/* hover media clean (no title overlay) */
 
 .hover-card-content {
     padding: 14px 16px 18px;
@@ -597,54 +584,7 @@
 }
 
 
-/* ===================================================
-   PLAYER AUDIO & VOLUME PERSISTENCE
-   =================================================== */
-
-.player-volume-badge {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    z-index: 999999;
-    background: rgba(18, 21, 28, 0.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 24px;
-    padding: 8px 16px;
-    color: #ffffff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8);
-    transition: opacity 0.5s ease, transform 0.2s ease, background 0.2s ease;
-    animation: fadeInDown 0.3s ease-out;
-    pointer-events: auto;
-    user-select: none;
-}
-
-.player-volume-badge:hover {
-    background: rgba(28, 33, 44, 0.98);
-    transform: scale(1.05);
-}
-
-.player-volume-badge i {
-    width: 16px;
-    height: 16px;
-    color: #46d369;
-}
-
-.player-volume-badge.muted i {
-    color: #e50914;
-}
-
-.player-volume-badge.faded {
-    opacity: 0;
-    pointer-events: none;
-}
+/* PLAYER AUDIO: VidLink unmuted mode via autoplay=false; Native video synced with localStorage */
 
 
 /* ===================================================

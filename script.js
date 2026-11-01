@@ -539,13 +539,28 @@ const app = {
         hoverTimer: null,
         hideTimer: null,
 
+        isAnyModalOpen: () => {
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer && !modalContainer.classList.contains('hidden')) return true;
+            const playerContainer = document.getElementById('player-container');
+            if (playerContainer && !playerContainer.classList.contains('hidden')) return true;
+            const legalModal = document.getElementById('legal-modal');
+            if (legalModal && !legalModal.classList.contains('hidden')) return true;
+            return false;
+        },
+
         init: () => {
             const card = document.getElementById('prime-hover-card');
             if (!card) return;
 
             document.addEventListener('mouseover', (e) => {
+                if (app.hoverCard.isAnyModalOpen()) {
+                    app.hoverCard.hide();
+                    return;
+                }
                 const poster = e.target.closest('.poster');
                 if (poster && poster.dataset && poster.dataset.itemId) {
+                    if (app.hoverCard.isAnyModalOpen()) return;
                     if (app.hoverCard.hideTimer) {
                         clearTimeout(app.hoverCard.hideTimer);
                         app.hoverCard.hideTimer = null;
@@ -555,8 +570,10 @@ const app = {
                     }
                     if (app.hoverCard.hoverTimer) clearTimeout(app.hoverCard.hoverTimer);
                     app.hoverCard.hoverTimer = setTimeout(() => {
-                        app.hoverCard.show(poster);
-                    }, 180);
+                        if (!app.hoverCard.isAnyModalOpen()) {
+                            app.hoverCard.show(poster);
+                        }
+                    }, 220);
                 }
             });
 
@@ -569,7 +586,16 @@ const app = {
                 }
             });
 
+            // Dismiss hover card immediately on any click
+            document.addEventListener('click', () => {
+                app.hoverCard.hide();
+            });
+
             card.addEventListener('mouseenter', () => {
+                if (app.hoverCard.isAnyModalOpen()) {
+                    app.hoverCard.hide();
+                    return;
+                }
                 if (app.hoverCard.hideTimer) {
                     clearTimeout(app.hoverCard.hideTimer);
                     app.hoverCard.hideTimer = null;
@@ -598,6 +624,10 @@ const app = {
         },
 
         show: (posterEl) => {
+            if (app.hoverCard.isAnyModalOpen()) {
+                app.hoverCard.hide();
+                return;
+            }
             const id = posterEl.dataset.itemId;
             if (!id) return;
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
@@ -608,6 +638,10 @@ const app = {
         },
 
         render: (item, anchorEl) => {
+            if (app.hoverCard.isAnyModalOpen()) {
+                app.hoverCard.hide();
+                return;
+            }
             const card = document.getElementById('prime-hover-card');
             if (!card || !anchorEl) return;
 
@@ -656,12 +690,10 @@ const app = {
 
             const isInMyList = (app.state.customContent || []).some(c => c.id == item.id);
 
+            // Clean thumbnail with NO duplicated title overlay; title is cleanly presented below
             card.innerHTML = `
                 <div class="hover-card-media" onclick="app.handlers.openDetailsById('${item.id}')">
-                    <img src="${img}" alt="${title}" onerror="this.src='https://via.placeholder.com/340x190/181818/ffffff?text=' + encodeURIComponent('${title.replace(/'/g, "\\\'")}')">
-                    <div class="hover-media-title-overlay">
-                        <span>${title}</span>
-                    </div>
+                    <img src="${img}" alt="${title}" onerror="this.src='https://via.placeholder.com/340x190/181818/ffffff?text=' + encodeURIComponent('${title.replace(/'/g, "\\\'")}');">
                 </div>
                 <div class="hover-card-content">
                     <h3 class="hover-card-title" onclick="app.handlers.openDetailsById('${item.id}')">${title}</h3>
@@ -702,6 +734,14 @@ const app = {
         },
 
         hide: () => {
+            if (app.hoverCard.hoverTimer) {
+                clearTimeout(app.hoverCard.hoverTimer);
+                app.hoverCard.hoverTimer = null;
+            }
+            if (app.hoverCard.hideTimer) {
+                clearTimeout(app.hoverCard.hideTimer);
+                app.hoverCard.hideTimer = null;
+            }
             const card = document.getElementById('prime-hover-card');
             if (card) {
                 card.classList.add('hidden');
@@ -861,7 +901,8 @@ const app = {
             lucide.createIcons();
         },
 
-        openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1) => {
+                openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1) => {
+            if (app.hoverCard) app.hoverCard.hide();
             if (itemId) {
                 window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId);
             }
@@ -876,10 +917,22 @@ const app = {
                     seasonNum = item.episodes[episodeIndex].season || 1;
                     episodeNum = item.episodes[episodeIndex].episode_number || (episodeIndex + 1);
                 }
-                const audioParams = '?primaryColor=E50914&autoplay=true';
+                const audioParams = '?primaryColor=E50914&autoplay=false';
                 videoUrl = isTv 
                     ? `https://vidlink.pro/tv/${itemId}/${seasonNum}/${episodeNum}${audioParams}`
                     : `https://vidlink.pro/movie/${itemId}${audioParams}`;
+            }
+
+            // Enforce autoplay=false on VidLink so internal player does not hardcode mute: true
+            if (videoUrl && videoUrl.includes('vidlink.pro')) {
+                if (videoUrl.includes('autoplay=true')) {
+                    videoUrl = videoUrl.replace(/autoplay=true/g, 'autoplay=false');
+                } else if (!videoUrl.includes('autoplay=')) {
+                    videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=false';
+                }
+                if (!videoUrl.includes('primaryColor=')) {
+                    videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'primaryColor=E50914';
+                }
             }
 
             if (!videoUrl) return alert("No video URL available!");
@@ -1178,9 +1231,6 @@ const app = {
                     `;
                     if (window.lucide) lucide.createIcons();
                 } else if (iframeUrl.includes('vidlink.pro') || iframeUrl.includes('vidsrc') || iframeUrl.includes('vidking.net') || iframeUrl.includes('/embed')) {
-                    const savedVol = Math.round(app.audio.getVolume() * 100);
-                    const isMuted = app.audio.isMuted();
-
                     const hasServer1 = window.currentPlayingItem && window.currentPlayingItem.video_url && window.currentPlayingItem.video_url.includes('drive.google.com');
                     modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
@@ -1193,10 +1243,6 @@ const app = {
                                 <button class="server-btn active" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
                             </div>
                         ` : ''}
-                        <div id="player-volume-badge" class="player-volume-badge ${isMuted ? 'muted' : ''}" onclick="app.handlers.togglePlayerAudio(this)">
-                            <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
-                            <span>${isMuted ? 'Audio: Muted' : 'Audio: ' + savedVol + '% (Unmuted)'}</span>
-                        </div>
                         <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; overflow: hidden;">
                             <iframe id="main-player-iframe" src="${iframeUrl}" 
                                 frameborder="0" 
@@ -1207,33 +1253,6 @@ const app = {
                         </div>
                     `;
                     if (window.lucide) lucide.createIcons();
-
-                    // Send unMute signals to iframe and auto-fade badge after 4s
-                    setTimeout(() => {
-                        const badge = document.getElementById('player-volume-badge');
-                        if (badge) badge.classList.add('faded');
-                    }, 4000);
-
-                    const iframe = document.getElementById('main-player-iframe');
-                    if (iframe) {
-                        const sendAudioState = () => {
-                            try {
-                                const currentMuted = app.audio.isMuted();
-                                const currentVol = app.audio.getVolume();
-                                iframe.contentWindow.postMessage({ type: 'setMute', muted: currentMuted }, '*');
-                                iframe.contentWindow.postMessage({ type: 'setVolume', volume: currentVol * 100 }, '*');
-                                if (!currentMuted) {
-                                    iframe.contentWindow.postMessage({ method: 'unMute' }, '*');
-                                    iframe.contentWindow.postMessage({ type: 'unmute' }, '*');
-                                }
-                            } catch (e) {}
-                        };
-                        iframe.addEventListener('load', () => {
-                            sendAudioState();
-                            setTimeout(sendAudioState, 600);
-                            setTimeout(sendAudioState, 1500);
-                        });
-                    }
                 } else {
                     // Native Video Support (MP4, etc.)
                     modal.innerHTML = `
@@ -1263,6 +1282,7 @@ const app = {
         },
 
         openDetails: async (item) => {
+            if (app.hoverCard) app.hoverCard.hide();
             try {
                 const modal = document.getElementById('modal-container');
                 modal.classList.remove('hidden');
@@ -1387,46 +1407,11 @@ const app = {
     },
 
     handlers: {
-        togglePlayerAudio: (badgeEl) => {
-            const currentlyMuted = app.audio.isMuted();
-            const newMuted = !currentlyMuted;
-            app.audio.setMuted(newMuted);
-
-            const vol = Math.round(app.audio.getVolume() * 100);
-            if (badgeEl) {
-                badgeEl.classList.remove('faded');
-                if (newMuted) {
-                    badgeEl.classList.add('muted');
-                    badgeEl.innerHTML = '<i data-lucide="volume-x"></i><span>Audio: Muted</span>';
-                } else {
-                    badgeEl.classList.remove('muted');
-                    badgeEl.innerHTML = '<i data-lucide="volume-2"></i><span>Audio: ' + vol + '% (Unmuted)</span>';
-                }
-                if (window.lucide) lucide.createIcons({ root: badgeEl });
-                setTimeout(() => { if (badgeEl) badgeEl.classList.add('faded'); }, 3000);
-            }
-
-            // Sync with active video or iframe
-            const nativeVid = document.getElementById('active-native-video') || document.querySelector('video');
-            if (nativeVid) {
-                nativeVid.muted = newMuted;
-            }
-
-            const iframe = document.getElementById('main-player-iframe');
-            if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'setMute', muted: newMuted }, '*');
-                if (!newMuted) {
-                    iframe.contentWindow.postMessage({ method: 'unMute' }, '*');
-                    iframe.contentWindow.postMessage({ type: 'unmute' }, '*');
-                }
-            }
-        },
-
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
             const tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
-            const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+            const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=false`;
             app.router.openPlayer(streamUrl, null, id, null, 2);
         },
 
@@ -1440,7 +1425,7 @@ const app = {
             if (newServer === 2) {
                 // Switch to VidLink HD Stream
                 const tmdbId = app.customTmdbMap[item.id] || (item.id && item.id.replace('movie_', '')) || item.id;
-                const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+                const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=false`;
                 app.router.openPlayer(streamUrl, null, item.id, null, 2);
             } else {
                 // Switch back to original file/Drive
@@ -1759,6 +1744,7 @@ const app = {
         },
 
         openDetailsById: (id) => {
+            if (app.hoverCard) app.hoverCard.hide();
             const item = app.services.findItemById(id);
             if (item) {
                 app.router.openDetails(item);
@@ -1790,8 +1776,8 @@ const app = {
                 // VidLink Embed Integration for TMDB Content
                 const isTv = item.media_type === 'tv' || item.name || item.first_air_date;
                 const streamUrl = isTv 
-                    ? `https://vidlink.pro/tv/${item.id}/1/1`
-                    : `https://vidlink.pro/movie/${item.id}`;
+                    ? `https://vidlink.pro/tv/${item.id}/1/1?primaryColor=E50914&autoplay=false`
+                    : `https://vidlink.pro/movie/${item.id}?primaryColor=E50914&autoplay=false`;
                 app.router.openPlayer(streamUrl);
             } else {
                 console.warn("No video URL found for this item.");
