@@ -218,8 +218,8 @@ const app = {
                 searchInput.classList.remove('active');
                 searchClose.classList.add('hidden');
                 searchInput.value = '';
-                // Go back to previous hash or home
-                window.location.hash = 'home';
+                // Immediately restore previous/current view
+                app.router.handleHash();
             });
 
             // Force hash handling when clicking nav links to the same hash
@@ -259,12 +259,33 @@ const app = {
                 }
             });
 
+            let searchDebounceTimer = null;
             searchInput.addEventListener('input', (e) => {
                 const query = e.target.value;
-                if (query.length > 2) {
-                    app.pages.search(document.getElementById('main-content'), query);
-                } else if (query.length === 0) {
-                    window.location.hash = 'home';
+                if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+
+                if (!query || query.trim().length === 0) {
+                    // Instantly restore page on backspace / clear
+                    app.router.handleHash();
+                    return;
+                }
+
+                searchDebounceTimer = setTimeout(() => {
+                    const main = document.getElementById('main-content');
+                    if (main && searchInput.value.trim().length > 0) {
+                        app.pages.search(main, searchInput.value.trim());
+                    }
+                }, 250);
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    searchBox.classList.remove('active');
+                    searchInput.classList.remove('active');
+                    searchClose.classList.add('hidden');
+                    searchInput.blur();
+                    app.router.handleHash();
                 }
             });
 
@@ -372,8 +393,8 @@ const app = {
                     episodeNum = item.episodes[episodeIndex].episode_number || (episodeIndex + 1);
                 }
                 videoUrl = isTv 
-                    ? `https://www.vidking.net/embed/tv/${itemId}/${seasonNum}/${episodeNum}`
-                    : `https://www.vidking.net/embed/movie/${itemId}`;
+                    ? `https://vidlink.pro/tv/${itemId}/${seasonNum}/${episodeNum}`
+                    : `https://vidlink.pro/movie/${itemId}`;
             }
 
             if (!videoUrl) return alert("No video URL available!");
@@ -661,7 +682,7 @@ const app = {
                             </iframe>
                         </div>
                     `;
-                } else if (iframeUrl.includes('vidking.net')) {
+                } else if (iframeUrl.includes('vidlink.pro') || iframeUrl.includes('vidsrc') || iframeUrl.includes('vidking.net') || iframeUrl.includes('/embed')) {
                     modal.innerHTML = `
                         <button class="close-player" onclick="app.handlers.closePlayer()" 
                             style="position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0,0,0,0.7); border-radius: 50%; padding: 10px; border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; pointer-events: auto;">
@@ -853,12 +874,12 @@ const app = {
             } else if (url && url !== 'undefined' && url.trim() !== '') {
                 app.router.openPlayer(url);
             } else if (item && item.id && !item.is_custom) {
-                // Vidking Embed Integration for TMDB Content
+                // VidLink Embed Integration for TMDB Content
                 const isTv = item.media_type === 'tv' || item.name || item.first_air_date;
-                const vidkingUrl = isTv 
-                    ? `https://www.vidking.net/embed/tv/${item.id}/1/1`
-                    : `https://www.vidking.net/embed/movie/${item.id}`;
-                app.router.openPlayer(vidkingUrl);
+                const streamUrl = isTv 
+                    ? `https://vidlink.pro/tv/${item.id}/1/1`
+                    : `https://vidlink.pro/movie/${item.id}`;
+                app.router.openPlayer(streamUrl);
             } else {
                 console.warn("No video URL found for this item.");
                 alert("Video not available for this title.");
@@ -1799,35 +1820,69 @@ const app = {
              `;
         },
 
-        search: (container, query) => {
-            const q = query.trim().toLowerCase();
-            let allContent = [...app.state.customContent];
+        search: async (container, query) => {
+            const currentQuery = query.trim();
+            const q = currentQuery.toLowerCase();
+            if (!q) {
+                app.router.handleHash();
+                return;
+            }
 
-            let results = allContent.filter(i => {
+            // Show search indicator
+            container.innerHTML = `<div style="padding: 100px 4%; text-align: center; color: white;"><div class="loader" style="display:inline-block; width:40px; height:40px; border:3px solid rgba(255,255,255,0.2); border-radius:50%; border-top-color:#e50914; animation:spin 0.8s linear infinite;"></div><h2 style="margin-top:15px; font-weight:500;">Searching "${currentQuery}"...</h2><style>@keyframes spin { to { transform: rotate(360deg); } }</style></div>`;
+
+            // 1. Search local hardcoded library
+            const customMatches = (app.state.customContent || []).filter(i => {
                 const title = (i.title || i.name || '').toLowerCase();
                 const desc = (i.description || i.overview || '').toLowerCase();
                 const genre = (i.genre || '').toLowerCase();
                 return title.includes(q) || desc.includes(q) || genre.includes(q);
             });
-            
-            // Remove duplicates by ID just in case
+
+            // 2. Search TMDB live for all movies and TV shows
+            let tmdbResults = [];
+            try {
+                const rawTmdb = await app.services.fetchTmdb(`/search/multi?query=${encodeURIComponent(currentQuery)}`);
+                if (Array.isArray(rawTmdb)) {
+                    tmdbResults = rawTmdb.filter(i => (i.media_type === 'movie' || i.media_type === 'tv' || i.title || i.name) && (i.poster_path || i.backdrop_path));
+                }
+            } catch (e) {
+                console.error("TMDB Search Error", e);
+            }
+
+            // Stash search results for findItemById
+            app.state.searchResults = [...customMatches, ...tmdbResults];
+
+            // Verify if user already changed or cleared input while fetching
+            const activeInput = document.getElementById('search-input');
+            if (activeInput && activeInput.value.trim().toLowerCase() !== q) {
+                if (activeInput.value.trim() === '') {
+                    app.router.handleHash();
+                }
+                return;
+            }
+
+            let allContent = [...customMatches, ...tmdbResults];
+
+            // Remove duplicates by ID or title
             const seen = new Set();
-            results = results.filter(i => {
-                if (!i.id) return false;
-                if(seen.has(i.id)) return false;
-                seen.add(i.id);
+            let results = allContent.filter(i => {
+                const key = i.id || (i.title || i.name);
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
                 return true;
             });
 
             if (results.length === 0) {
-                container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${query}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
+                container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${currentQuery}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
                 return;
             }
-            // Sort prioritizing title matches first, then custom content
+
+            // Sort prioritizing exact title matches first, then startsWith, then custom content
             results.sort((a, b) => {
                 const aTitle = (a.title || a.name || '').toLowerCase();
                 const bTitle = (b.title || b.name || '').toLowerCase();
-                
+
                 const aExact = aTitle === q;
                 const bExact = bTitle === q;
                 if (aExact && !bExact) return -1;
@@ -1838,23 +1893,23 @@ const app = {
                 if (aStarts && !bStarts) return -1;
                 if (!aStarts && bStarts) return 1;
 
-                const aIncludes = aTitle.includes(q);
-                const bIncludes = bTitle.includes(q);
-                if (aIncludes && !bIncludes) return -1;
-                if (!aIncludes && bIncludes) return 1;
-
                 if (a.is_custom && !b.is_custom) return -1;
                 if (!a.is_custom && b.is_custom) return 1;
-                
+
                 return 0;
             });
 
+            // Derive related title exploration chips from results
+            const related = [...new Set(results.slice(0, 6).map(r => r.title || r.name).filter(Boolean))];
+
             container.innerHTML = `
                 <div class="search-results-container">
-                    <div class="related-titles-bar">
-                        <span style="color: #777;">Explore titles related to:</span>
-                        ${related.map(t => `<span class="related-title">${t}</span>`).join('')}
-                    </div>
+                    ${related.length > 0 ? `
+                        <div class="related-titles-bar">
+                            <span style="color: #777;">Explore titles related to:</span>
+                            ${related.map(t => `<span class="related-title" style="cursor:pointer;" onclick="const si = document.getElementById('search-input'); if(si){si.value='${t.replace(/'/g, "\\\'")}';} app.pages.search(document.getElementById('main-content'), '${t.replace(/'/g, "\\\'")}');">${t}</span>`).join('')}
+                        </div>
+                    ` : ''}
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 4%;">
                         ${results.map(item => {
@@ -1870,16 +1925,17 @@ const app = {
                                      style="cursor: pointer; position: relative; border-radius: 8px; overflow: hidden; transition: transform 0.2s; background: #181818; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"
                                      onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                                     <div style="position: relative;">
-                                        <img src="${fullImg}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;">
+                                        <img src="${fullImg}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;" loading="lazy">
                                         <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; color: white;">
-                                            ${item.is_custom ? '<i data-lucide="play" style="width: 10px; height: 10px; display: inline-block;"></i> Included' : '<i data-lucide="calendar" style="width: 10px; height: 10px; display: inline-block;"></i> Coming Soon'}
+                                            ${item.is_custom ? '<i data-lucide="check-circle" style="width: 10px; height: 10px; display: inline-block;"></i> In Library' : '<i data-lucide="play" style="width: 10px; height: 10px; display: inline-block;"></i> Watch Now'}
                                         </div>
                                     </div>
                                     <div style="padding: 12px;">
                                         <h3 style="font-size: 1rem; color: #fff; margin: 0 0 6px 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${item.title || item.name}</h3>
                                         <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; color: #aaa;">
-                                            <span>${item.release_date ? item.release_date.split('-')[0] : '2024'}</span>
+                                            <span>${item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : '2024')}</span>
                                             <span style="border: 1px solid #555; padding: 1px 4px; border-radius: 2px; font-size: 0.6rem;">HD</span>
+                                            <span style="color: #46d369; margin-left: auto; font-size: 0.75rem;">${Math.round((item.vote_average || 7.5) * 10)}% Match</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1888,7 +1944,7 @@ const app = {
                     </div>
                 </div>
             `;
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         },
 
         tv: (container) => {
@@ -2059,6 +2115,15 @@ const app = {
             let item = app.state.customContent.find(i => i.id == id);
             if (item) return item;
 
+            // Check currently viewed item
+            if (window.currentItem && window.currentItem.id == id) return window.currentItem;
+
+            // Check search results
+            if (app.state.searchResults) {
+                item = app.state.searchResults.find(i => i.id == id);
+                if (item) return item;
+            }
+
             // Check all TMDB lists
             const lists = [app.state.tmdbContent.trending, app.state.tmdbContent.topRated, app.state.tmdbContent.action, app.state.tmdbContent.comedy];
             for (const list of lists) {
@@ -2093,16 +2158,16 @@ const app = {
             else url += '&language=en-US';
             url += `&api_key=${apiKey}`;
 
-            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-
             try {
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                return data.results || [];
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.results || [];
+                }
             } catch (e) {
-                console.error("TMDB Fetch Error:", e);
-                return [];
+                console.warn("Direct TMDB Fetch Error:", e);
             }
+            return [];
         },
 
         loadContent: async () => {
