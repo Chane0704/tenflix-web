@@ -204,13 +204,184 @@ const app = {
             const searchBox = document.querySelector('.search-box');
             const searchInput = document.getElementById('search-input');
             const searchClose = document.querySelector('.search-close');
+            const suggestionsEl = document.getElementById('search-suggestions');
+
+            const POPULAR_SUGGESTIONS = [
+                { title: "Deadpool", type: "Movie" },
+                { title: "Deadpool 2", type: "Movie" },
+                { title: "Deadpool & Wolverine", type: "Movie" },
+                { title: "Once Upon a Deadpool", type: "Movie" },
+                { title: "The Office", type: "Series" },
+                { title: "Office Space", type: "Movie" },
+                { title: "Off Campus", type: "Series" },
+                { title: "The Walking Dead", type: "Series" },
+                { title: "Dead Poets Society", type: "Movie" },
+                { title: "Dead to Me", type: "Series" },
+                { title: "Fear the Walking Dead", type: "Series" },
+                { title: "Spider-Man", type: "Movie" },
+                { title: "Spider-Man: No Way Home", type: "Movie" },
+                { title: "Spider-Man: Across the Spider-Verse", type: "Movie" },
+                { title: "Spider-Man: Into the Spider-Verse", type: "Movie" },
+                { title: "Avengers", type: "Movie" },
+                { title: "Avengers: Endgame", type: "Movie" },
+                { title: "Avengers: Infinity War", type: "Movie" },
+                { title: "The Batman", type: "Movie" },
+                { title: "The Dark Knight", type: "Movie" },
+                { title: "Batman Begins", type: "Movie" },
+                { title: "Superman", type: "Movie" },
+                { title: "Harry Potter and the Sorcerer's Stone", type: "Movie" },
+                { title: "Star Wars", type: "Movie" },
+                { title: "Stranger Things", type: "Series" },
+                { title: "Breaking Bad", type: "Series" },
+                { title: "Better Call Saul", type: "Series" },
+                { title: "Game of Thrones", type: "Series" },
+                { title: "House of the Dragon", type: "Series" },
+                { title: "The Boys", type: "Series" },
+                { title: "Wednesday", type: "Series" },
+                { title: "Squid Game", type: "Series" },
+                { title: "Inception", type: "Movie" },
+                { title: "Interstellar", type: "Movie" },
+                { title: "Oppenheimer", type: "Movie" },
+                { title: "Barbie", type: "Movie" },
+                { title: "Avatar", type: "Movie" },
+                { title: "Gladiator", type: "Movie" },
+                { title: "Dune", type: "Movie" },
+                { title: "Dune: Part Two", type: "Movie" },
+                { title: "John Wick", type: "Movie" },
+                { title: "Top Gun: Maverick", type: "Movie" },
+                { title: "Fight Club", type: "Movie" },
+                { title: "The Matrix", type: "Movie" },
+                { title: "Friends", type: "Series" },
+                { title: "Emily in Paris", type: "Series" },
+                { title: "Dhurandhar", type: "Movie" },
+                { title: "Dhurandhar: The Revenge", type: "Movie" },
+                { title: "Voicemails For Isabelle", type: "Movie" },
+                { title: "Crazy Rich Asians", type: "Movie" },
+                { title: "How to Lose a Guy in 10 Days", type: "Movie" },
+                { title: "How to Train Your Dragon", type: "Movie" },
+                { title: "How to Train Your Dragon 2", type: "Movie" },
+                { title: "How to Train Your Dragon: The Hidden World", type: "Movie" },
+                { title: "The Perks of Being a Wallflower", type: "Movie" },
+                { title: "10 Things I Hate About You", type: "Movie" }
+            ];
+
+            let activeSuggestionIdx = -1;
+
+            const hideSuggestions = () => {
+                if (suggestionsEl) {
+                    suggestionsEl.classList.add('hidden');
+                    suggestionsEl.innerHTML = '';
+                }
+                activeSuggestionIdx = -1;
+            };
+
+            const selectSuggestion = (title) => {
+                searchInput.value = title;
+                hideSuggestions();
+                const main = document.getElementById('main-content');
+                if (main) app.pages.search(main, title);
+            };
+
+            const updateSuggestions = (query) => {
+                if (!suggestionsEl) return;
+                const q = query.trim().toLowerCase();
+                if (q.length === 0) {
+                    hideSuggestions();
+                    return;
+                }
+
+                // Collect from custom content
+                const customItems = (app.state.customContent || []).map(i => ({
+                    title: i.title || i.name,
+                    type: i.episodes ? 'Series' : 'Movie'
+                })).filter(i => i.title);
+
+                // Collect from popular suggestions
+                const allItems = [...customItems, ...POPULAR_SUGGESTIONS];
+
+                // Append any TMDB titles recently fetched
+                if (app.state.searchResults) {
+                    app.state.searchResults.forEach(r => {
+                        const t = r.title || r.name;
+                        if (t && !allItems.some(x => x.title.toLowerCase() === t.toLowerCase())) {
+                            allItems.push({ title: t, type: r.media_type === 'tv' ? 'Series' : 'Movie' });
+                        }
+                    });
+                }
+
+                // Filter matching titles
+                const matched = allItems.filter(item => item.title.toLowerCase().includes(q));
+
+                // Deduplicate by title
+                const seen = new Set();
+                const unique = [];
+                for (const item of matched) {
+                    const norm = item.title.toLowerCase();
+                    if (!seen.has(norm)) {
+                        seen.add(norm);
+                        unique.push(item);
+                    }
+                }
+
+                // Sort: items starting with query come first
+                unique.sort((a, b) => {
+                    const aStarts = a.title.toLowerCase().startsWith(q);
+                    const bStarts = b.title.toLowerCase().startsWith(q);
+                    if (aStarts && !bStarts) return -1;
+                    if (!aStarts && bStarts) return 1;
+                    return a.title.localeCompare(b.title);
+                });
+
+                const topSuggestions = unique.slice(0, 6);
+
+                if (topSuggestions.length === 0) {
+                    hideSuggestions();
+                    return;
+                }
+
+                suggestionsEl.innerHTML = topSuggestions.map((item, idx) => {
+                    // Highlight the query portion in the title
+                    const title = item.title;
+                    const matchStart = title.toLowerCase().indexOf(q);
+                    let renderedTitle = title;
+                    if (matchStart !== -1) {
+                        const before = title.substring(0, matchStart);
+                        const match = title.substring(matchStart, matchStart + q.length);
+                        const after = title.substring(matchStart + q.length);
+                        renderedTitle = `${before}<span style="color:#fff;font-weight:700;">${match}</span>${after}`;
+                    }
+
+                    return `
+                        <div class="search-suggestion-item" data-index="${idx}" data-title="${title.replace(/"/g, '&quot;')}">
+                            <span class="search-suggestion-icon"><i data-lucide="search" style="width:14px;height:14px;"></i></span>
+                            <span class="search-suggestion-title">${renderedTitle}</span>
+                            ${item.type ? `<span class="search-suggestion-meta">${item.type}</span>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                suggestionsEl.classList.remove('hidden');
+                activeSuggestionIdx = -1;
+                if (window.lucide) lucide.createIcons();
+            };
+
+            if (suggestionsEl) {
+                suggestionsEl.addEventListener('click', (e) => {
+                    const item = e.target.closest('.search-suggestion-item');
+                    if (item && item.dataset.title) {
+                        selectSuggestion(item.dataset.title);
+                    }
+                });
+            }
 
             searchIcon.addEventListener('click', () => {
                 searchBox.classList.add('active');
                 searchInput.focus();
-                // Fix: ensure the input has the correct class
                 searchInput.className = 'search-input';
                 searchClose.classList.remove('hidden');
+                if (searchInput.value.trim().length > 0) {
+                    updateSuggestions(searchInput.value.trim());
+                }
             });
 
             searchClose.addEventListener('click', () => {
@@ -218,6 +389,7 @@ const app = {
                 searchInput.classList.remove('active');
                 searchClose.classList.add('hidden');
                 searchInput.value = '';
+                hideSuggestions();
                 // Immediately restore previous/current view
                 app.router.handleHash();
             });
@@ -257,6 +429,15 @@ const app = {
                     dropdown.classList.add('hidden');
                     if (chevron) chevron.style.transform = 'rotate(0deg)';
                 }
+                if (searchBox && !searchBox.contains(e.target)) {
+                    hideSuggestions();
+                }
+            });
+
+            searchInput.addEventListener('focus', () => {
+                if (searchInput.value.trim().length > 0) {
+                    updateSuggestions(searchInput.value.trim());
+                }
             });
 
             let searchDebounceTimer = null;
@@ -265,27 +446,76 @@ const app = {
                 if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
 
                 if (!query || query.trim().length === 0) {
+                    hideSuggestions();
                     // Instantly restore page on backspace / clear
                     app.router.handleHash();
                     return;
                 }
 
+                // Show instant suggestions immediately (0ms)
+                updateSuggestions(query.trim());
+
                 searchDebounceTimer = setTimeout(() => {
                     const main = document.getElementById('main-content');
                     if (main && searchInput.value.trim().length > 0) {
-                        app.pages.search(main, searchInput.value.trim());
+                        app.pages.search(main, searchInput.value.trim()).then(() => {
+                            // Refresh suggestions with live search results
+                            if (document.activeElement === searchInput && searchInput.value.trim().length > 0) {
+                                updateSuggestions(searchInput.value.trim());
+                            }
+                        });
                     }
                 }, 250);
             });
 
             searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    searchInput.value = '';
-                    searchBox.classList.remove('active');
-                    searchInput.classList.remove('active');
-                    searchClose.classList.add('hidden');
-                    searchInput.blur();
-                    app.router.handleHash();
+                const items = suggestionsEl ? suggestionsEl.querySelectorAll('.search-suggestion-item') : [];
+                if (e.key === 'ArrowDown') {
+                    if (items.length > 0) {
+                        e.preventDefault();
+                        activeSuggestionIdx = (activeSuggestionIdx + 1) % items.length;
+                        items.forEach((it, idx) => {
+                            if (idx === activeSuggestionIdx) {
+                                it.classList.add('active');
+                                it.scrollIntoView({ block: 'nearest' });
+                            } else {
+                                it.classList.remove('active');
+                            }
+                        });
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    if (items.length > 0) {
+                        e.preventDefault();
+                        activeSuggestionIdx = (activeSuggestionIdx - 1 + items.length) % items.length;
+                        items.forEach((it, idx) => {
+                            if (idx === activeSuggestionIdx) {
+                                it.classList.add('active');
+                                it.scrollIntoView({ block: 'nearest' });
+                            } else {
+                                it.classList.remove('active');
+                            }
+                        });
+                    }
+                } else if (e.key === 'Enter') {
+                    if (activeSuggestionIdx >= 0 && items[activeSuggestionIdx]) {
+                        e.preventDefault();
+                        selectSuggestion(items[activeSuggestionIdx].dataset.title);
+                    } else {
+                        hideSuggestions();
+                    }
+                } else if (e.key === 'Escape') {
+                    if (suggestionsEl && !suggestionsEl.classList.contains('hidden')) {
+                        e.stopPropagation();
+                        hideSuggestions();
+                    } else {
+                        searchInput.value = '';
+                        searchBox.classList.remove('active');
+                        searchInput.classList.remove('active');
+                        searchClose.classList.add('hidden');
+                        searchInput.blur();
+                        hideSuggestions();
+                        app.router.handleHash();
+                    }
                 }
             });
 
