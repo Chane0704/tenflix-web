@@ -402,6 +402,8 @@
 }
 
 .prime-hover-card.hidden,
+body.modal-open #prime-hover-card,
+body.modal-open .prime-hover-card,
 #modal-container:not(.hidden) ~ #prime-hover-card,
 #player-container:not(.hidden) ~ #prime-hover-card,
 #legal-modal:not(.hidden) ~ #prime-hover-card {

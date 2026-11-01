@@ -152,7 +152,7 @@
             <!-- Modals -->
             <!-- Details Modal (Episode List, etc.) -->
             <div id="modal-container" class="modal-container hidden"
-                onclick="if(event.target === this) document.getElementById('modal-container').classList.add('hidden')">
+                onclick="if(event.target === this) { document.getElementById('modal-container').classList.add('hidden'); document.body.classList.remove('modal-open'); if (window.app && app.hoverCard) app.hoverCard.hide(); }">
             </div>
 
             <!-- Video Player Overlay (Higher Z-Index) -->
@@ -217,9 +217,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=UNMUTED_CLEAN_HOVER_V2">
+    <link rel="stylesheet" href="patch.css?v=UNMUTED_CLEAN_HOVER_V3">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=UNMUTED_CLEAN_HOVER_V2" defer></script>
+    <script src="script.js?v=UNMUTED_CLEAN_HOVER_V3" defer></script>
 </body>
 
 </html>

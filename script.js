@@ -538,8 +538,10 @@ const app = {
         currentPoster: null,
         hoverTimer: null,
         hideTimer: null,
+        modalObserver: null,
 
         isAnyModalOpen: () => {
+            if (document.body.classList.contains('modal-open')) return true;
             const modalContainer = document.getElementById('modal-container');
             if (modalContainer && !modalContainer.classList.contains('hidden')) return true;
             const playerContainer = document.getElementById('player-container');
@@ -586,10 +588,19 @@ const app = {
                 }
             });
 
-            // Dismiss hover card immediately on any click
-            document.addEventListener('click', () => {
-                app.hoverCard.hide();
-            });
+            // Instant hide on ANY mousedown/pointerdown/click in capture phase
+            window.addEventListener('pointerdown', (e) => {
+                const c = document.getElementById('prime-hover-card');
+                if (c && !c.contains(e.target)) {
+                    app.hoverCard.hide();
+                }
+            }, true);
+
+            window.addEventListener('click', (e) => {
+                if (e.target.closest('.poster') || e.target.closest('.hover-card-media') || e.target.closest('.hover-card-title') || e.target.closest('.hover-btn-play') || e.target.closest('.hover-btn-circle')) {
+                    app.hoverCard.hide();
+                }
+            }, true);
 
             card.addEventListener('mouseenter', () => {
                 if (app.hoverCard.isAnyModalOpen()) {
@@ -610,6 +621,23 @@ const app = {
 
             window.addEventListener('scroll', () => app.hoverCard.hide(), { passive: true });
             window.addEventListener('hashchange', () => app.hoverCard.hide());
+
+            // MutationObserver ensures hover card is immediately dismissed if any modal state changes
+            try {
+                if (!app.hoverCard.modalObserver) {
+                    app.hoverCard.modalObserver = new MutationObserver(() => {
+                        if (app.hoverCard.isAnyModalOpen()) {
+                            app.hoverCard.hide();
+                        }
+                    });
+                    const mContainer = document.getElementById('modal-container');
+                    const pContainer = document.getElementById('player-container');
+                    const lModal = document.getElementById('legal-modal');
+                    if (mContainer) app.hoverCard.modalObserver.observe(mContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+                    if (pContainer) app.hoverCard.modalObserver.observe(pContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+                    if (lModal) app.hoverCard.modalObserver.observe(lModal, { attributes: true, attributeFilter: ['class', 'style'] });
+                }
+            } catch (e) {}
         },
 
         scheduleHide: () => {
@@ -692,20 +720,20 @@ const app = {
 
             // Clean thumbnail with NO duplicated title overlay; title is cleanly presented below
             card.innerHTML = `
-                <div class="hover-card-media" onclick="app.handlers.openDetailsById('${item.id}')">
+                <div class="hover-card-media" onclick="app.hoverCard.hide(); app.handlers.openDetailsById('${item.id}')">
                     <img src="${img}" alt="${title}" onerror="this.src='https://via.placeholder.com/340x190/181818/ffffff?text=' + encodeURIComponent('${title.replace(/'/g, "\\\'")}');">
                 </div>
                 <div class="hover-card-content">
-                    <h3 class="hover-card-title" onclick="app.handlers.openDetailsById('${item.id}')">${title}</h3>
+                    <h3 class="hover-card-title" onclick="app.hoverCard.hide(); app.handlers.openDetailsById('${item.id}')">${title}</h3>
                     <div class="hover-included-badge">
                         <i data-lucide="check-circle-2"></i> Included with Tenflix
                     </div>
 
                     <div class="hover-card-actions">
-                        <button class="hover-btn-play" onclick="event.stopPropagation(); app.handlers.quickPlay('${item.id}')">
+                        <button class="hover-btn-play" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.quickPlay('${item.id}')">
                             <i data-lucide="play" fill="black"></i> Play
                         </button>
-                        <button class="hover-btn-circle" title="More Info" onclick="event.stopPropagation(); app.handlers.openDetailsById('${item.id}')">
+                        <button class="hover-btn-circle" title="More Info" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.openDetailsById('${item.id}')">
                             <i data-lucide="info"></i>
                         </button>
                         <button class="hover-btn-circle ${isInMyList ? 'active' : ''}" title="${isInMyList ? 'In My List' : 'Add to My List'}" onclick="event.stopPropagation(); app.handlers.toggleMyList('${item.id}', this)">
@@ -730,6 +758,9 @@ const app = {
             `;
 
             if (window.lucide) lucide.createIcons({ root: card });
+            card.style.display = 'block';
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
             card.classList.remove('hidden');
         },
 
@@ -745,6 +776,9 @@ const app = {
             const card = document.getElementById('prime-hover-card');
             if (card) {
                 card.classList.add('hidden');
+                card.style.display = 'none';
+                card.style.opacity = '0';
+                card.style.pointerEvents = 'none';
                 app.hoverCard.currentPoster = null;
             }
         }
@@ -1283,6 +1317,7 @@ const app = {
 
         openDetails: async (item) => {
             if (app.hoverCard) app.hoverCard.hide();
+            document.body.classList.add('modal-open');
             try {
                 const modal = document.getElementById('modal-container');
                 modal.classList.remove('hidden');
@@ -1308,7 +1343,7 @@ const app = {
                 // Build HTML
                 modal.innerHTML = `
                     <div class="modal-content">
-                        <div class="close-modal" onclick="document.getElementById('modal-container').classList.add('hidden')">
+                        <div class="close-modal" onclick="document.getElementById('modal-container').classList.add('hidden'); document.body.classList.remove('modal-open'); if (app.hoverCard) app.hoverCard.hide();">
                             <i data-lucide="x"></i>
                         </div>
                         
@@ -1765,6 +1800,7 @@ const app = {
             }
         },
         playMain: (url, hasEpisodes) => {
+            if (app.hoverCard) app.hoverCard.hide();
             const item = window.currentItem;
             if (hasEpisodes && item && item.episodes && item.episodes.length > 0) {
                 // Play first episode
@@ -2102,6 +2138,8 @@ const app = {
             app.activeYoutubePlayer = null;
             app.activeYoutubeInterval = null;
 
+            document.body.classList.remove('modal-open');
+            if (app.hoverCard) app.hoverCard.hide();
             modal.classList.add('hidden');
             modal.innerHTML = '';
         },
