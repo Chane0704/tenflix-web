@@ -973,9 +973,54 @@ button.close-player:hover {
    PC / Laptop (> 768px) is 100% UNTOUCHED and PRESERVED
    ========================================================== */
 
-/* Hide mobile bottom navigation completely on PC / Laptop */
+/* PC / Laptop Specific Rules (Strictly for Desktop > 768px - Never affects Mobile) */
 @media (min-width: 769px) {
     .mobile-bottom-nav {
+        display: none !important;
+    }
+
+    /* Desktop Portrait Posters: Full uncropped artwork with visible title logos (Hotstar / Prime Video style) */
+    .row-posters {
+        display: flex !important;
+        gap: 14px !important;
+        padding: 12px 0 24px 0 !important;
+        overflow-x: auto !important;
+        scrollbar-width: thin !important;
+    }
+
+    .poster,
+    .row-posters .poster {
+        width: 180px !important;
+        min-width: 180px !important;
+        max-width: 180px !important;
+        border-radius: 8px !important;
+        background: #181a20 !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease !important;
+        flex-shrink: 0 !important;
+        position: relative !important;
+    }
+
+    .poster:hover,
+    .row-posters .poster:hover {
+        transform: scale(1.06) translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.85) !important;
+        z-index: 30 !important;
+    }
+
+    .poster-img {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 2 / 3 !important; /* Full 2:3 portrait ratio: Zero cropping, full heads and titles visible! */
+        object-fit: cover !important;
+        border-radius: 8px !important;
+        display: block !important;
+    }
+
+    /* Since the show title logo is already prominently designed into the poster artwork itself,
+       hide the redundant grey bottom bar overlay on desktop as well so artwork is 100% visible */
+    .poster-title-overlay {
         display: none !important;
     }
 }
