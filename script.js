@@ -2447,24 +2447,24 @@ const app = {
             const items = all.filter((item, idx, self) => self.findIndex(t => t.id === item.id) === idx).slice(0, 18);
 
             container.innerHTML = `
-                <div class="search-results-container" style="padding: 70px 16px 80px 16px;">
-                    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 14px;">Top Searches</h2>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
+                <div class="search-results-container">
+                    <h2 class="top-searches-heading" style="font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 14px;">Top Searches</h2>
+                    <div class="top-searches-list">
                         ${popularTitles.map(t => `
-                            <button type="button" onclick="const input = document.getElementById('search-input'); if(input) { input.value = '${t.replace(/'/g, "\\\'")}'; app.pages.search(document.getElementById('main-content'), '${t.replace(/'/g, "\\\'")}'); }" 
-                                style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 9999px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer;">
+                            <button type="button" class="top-search-pill" onclick="const input = document.getElementById('search-input'); if(input) { input.value = '${t.replace(/'/g, "\\\'")}'; app.pages.search(document.getElementById('main-content'), '${t.replace(/'/g, "\\\'")}'); }">
                                 ${t}
                             </button>
                         `).join('')}
                     </div>
-                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 12px;">Popular on Tenflix</h3>
-                    <div class="search-results-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 10px;">
+                    <h3 class="popular-heading" style="font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 16px;">Popular on Tenflix</h3>
+                    <div class="search-results-grid">
                         ${items.map(item => {
                             let img = item.poster_path ? (item.poster_path.startsWith('http') ? item.poster_path : ('https://image.tmdb.org/t/p/w500' + item.poster_path)) : '';
                             img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x300?text=' + encodeURIComponent(item.title || item.name || 'Movie'));
+                            const title = (item.title || item.name || '').replace(/"/g, '&quot;');
                             return `
-                                <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')" style="cursor: pointer; position: relative; border-radius: 6px; overflow: hidden; background: #202020;">
-                                    <img src="${img}" alt="${(item.title || item.name || '').replace(/"/g, '&quot;')}" style="width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; border-radius: 6px;">
+                                <div class="poster" data-item-id="${item.id}" onclick="app.handlers.openDetailsById('${item.id}')">
+                                    <img src="${img}" alt="${title}" class="poster-img" loading="lazy">
                                 </div>
                             `;
                         }).join('')}
@@ -3189,7 +3189,7 @@ const app = {
                         </div>
                     ` : ''}
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 4%;">
+                    <div class="search-query-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0 60px 0;">
                         ${results.map(item => {
                             const imgPath = item.backdrop_path || item.poster_path;
                             let fullImg = 'https://via.placeholder.com/300x169?text=No+Image';

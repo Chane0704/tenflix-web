@@ -1139,6 +1139,74 @@ button.close-player:hover {
     .poster-title-overlay {
         display: none !important;
     }
+
+    /* Search Results & Browse Grid on Desktop (Spacious, beautifully spaced Netflix style) */
+    .search-results-container {
+        padding: 95px 4% 80px 4% !important;
+        max-width: 1600px !important;
+        margin: 0 auto !important;
+    }
+
+    .search-results-grid {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)) !important;
+        gap: 24px 18px !important;
+        padding: 10px 0 50px 0 !important;
+    }
+
+    .search-results-grid .poster {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        aspect-ratio: 2 / 3 !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        background: #181a20 !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease !important;
+        flex-shrink: 1 !important;
+    }
+
+    .search-results-grid .poster:hover {
+        transform: scale(1.05) translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.85) !important;
+        z-index: 20 !important;
+    }
+
+    .search-results-grid .poster img {
+        width: 100% !important;
+        height: 100% !important;
+        aspect-ratio: 2 / 3 !important;
+        object-fit: cover !important;
+        display: block !important;
+        border-radius: 8px !important;
+    }
+
+    .top-searches-list {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        margin-bottom: 28px !important;
+    }
+
+    .top-search-pill {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #e5e5e5 !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-radius: 9999px !important;
+        padding: 7px 16px !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease !important;
+    }
+
+    .top-search-pill:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.45) !important;
+        color: #ffffff !important;
+        transform: translateY(-1px) !important;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1729,8 +1797,17 @@ button.close-player:hover {
     }
 
     .search-results-grid {
+        display: grid !important;
         grid-template-columns: repeat(3, 1fr) !important;
         gap: 8px !important;
+    }
+
+    .search-results-grid .poster {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        aspect-ratio: 2 / 3 !important;
+        border-radius: 6px !important;
     }
 
     /* 9. Site Footer on Mobile */
