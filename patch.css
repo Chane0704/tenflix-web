@@ -1015,24 +1015,38 @@ button.close-player:hover {
         gap: 12px !important;
     }
 
-    /* Hide decorative desktop gift & bell icons on mobile */
+    /* Hide decorative desktop gift & bell icons and chevron down on mobile */
+    .nav-actions svg.lucide-gift,
+    .nav-actions svg.lucide-bell,
     .nav-actions i[data-lucide="gift"],
-    .nav-actions i[data-lucide="bell"] {
+    .nav-actions i[data-lucide="bell"],
+    .profile-menu svg.lucide-chevron-down,
+    .profile-menu i[data-lucide="chevron-down"] {
         display: none !important;
+    }
+
+    .nav-actions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 16px !important;
     }
 
     .profile-icon {
-        width: 28px !important;
-        height: 28px !important;
+        width: 30px !important;
+        height: 30px !important;
     }
 
     .profile-icon img {
-        width: 28px !important;
-        height: 28px !important;
+        width: 30px !important;
+        height: 30px !important;
     }
 
-    .profile-menu i[data-lucide="chevron-down"] {
-        display: none !important;
+    /* Mobile cookie banner */
+    .cookie-banner {
+        max-width: 92vw !important;
+        padding: 18px !important;
+        border-radius: 16px !important;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
     }
 
     /* Search Box on Mobile */
@@ -1079,7 +1093,7 @@ button.close-player:hover {
         min-height: 480px !important;
         max-height: 560px !important;
         padding: 0 16px !important;
-        background-position: center top !important;
+        background-position: center center !important;
     }
 
     .hero-content {
