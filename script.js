@@ -548,12 +548,36 @@ const app = {
         currentPoster: null,
         hoverTimer: null,
         hideTimer: null,
+        scrollEndTimer: null,
         modalObserver: null,
         lastScrollTime: 0,
+        lastMouseX: -1,
+        lastMouseY: -1,
 
         onScrollOrWheel: () => {
             app.hoverCard.lastScrollTime = Date.now();
             app.hoverCard.hide();
+
+            if (app.hoverCard.scrollEndTimer) {
+                clearTimeout(app.hoverCard.scrollEndTimer);
+                app.hoverCard.scrollEndTimer = null;
+            }
+
+            // Desktop only: automatically trigger hover preview under cursor after scroll pauses
+            if (window.innerWidth <= 768) return;
+
+            app.hoverCard.scrollEndTimer = setTimeout(() => {
+                if (window.innerWidth <= 768 || app.hoverCard.isAnyModalOpen()) return;
+                if (app.hoverCard.lastMouseX < 0 || app.hoverCard.lastMouseY < 0) return;
+
+                const el = document.elementFromPoint(app.hoverCard.lastMouseX, app.hoverCard.lastMouseY);
+                if (!el) return;
+
+                const poster = el.closest('.poster');
+                if (poster && poster.dataset && poster.dataset.itemId) {
+                    app.hoverCard.show(poster);
+                }
+            }, 320);
         },
 
         isAnyModalOpen: () => {
@@ -570,6 +594,22 @@ const app = {
         init: () => {
             const card = document.getElementById('prime-hover-card');
             if (!card) return;
+
+            // Track mouse cursor position on desktop so scroll-stop can detect the new poster beneath it
+            window.addEventListener('mousemove', (e) => {
+                app.hoverCard.lastMouseX = e.clientX;
+                app.hoverCard.lastMouseY = e.clientY;
+            }, { passive: true });
+
+            document.documentElement.addEventListener('mouseleave', () => {
+                app.hoverCard.lastMouseX = -1;
+                app.hoverCard.lastMouseY = -1;
+                if (app.hoverCard.scrollEndTimer) {
+                    clearTimeout(app.hoverCard.scrollEndTimer);
+                    app.hoverCard.scrollEndTimer = null;
+                }
+                app.hoverCard.hide();
+            });
 
             document.addEventListener('mouseover', (e) => {
                 if (app.hoverCard.isAnyModalOpen()) {
@@ -679,6 +719,10 @@ const app = {
         },
 
         scheduleHide: () => {
+            if (app.hoverCard.scrollEndTimer) {
+                clearTimeout(app.hoverCard.scrollEndTimer);
+                app.hoverCard.scrollEndTimer = null;
+            }
             if (app.hoverCard.hoverTimer) {
                 clearTimeout(app.hoverCard.hoverTimer);
                 app.hoverCard.hoverTimer = null;
