@@ -3260,7 +3260,7 @@ const app = {
 
                 return `
                     <div class="poster" data-item-id="${item.id}" onclick="app.handlers.openDetailsById('${item.id}')">
-                        <img src="${imgPath}" alt="${displayTitle}" class="poster-img" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/300x169/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
+                        <img src="${imgPath}" alt="${displayTitle}" class="poster-img" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/300x450/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
                         <div class="poster-title-overlay">
                             <span class="poster-title-text">${displayTitle}</span>
                         </div>
