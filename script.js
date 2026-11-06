@@ -3281,26 +3281,73 @@ const app = {
                 app.components.createRow(document.getElementById('row-trending-movies'), "Trending Movies", tmdb.trendingMovies);
                 const r = document.getElementById('row-trending-movies').querySelector('.row');
                 if (r) r.style.marginTop = '0';
+            } else {
+                app.services.fetchTmdb('/trending/movie/week').then(movies => {
+                    if (movies && movies.length > 0) {
+                        app.state.tmdbContent.trendingMovies = movies;
+                        const rowEl = document.getElementById('row-trending-movies');
+                        if (rowEl) {
+                            rowEl.innerHTML = '';
+                            app.components.createRow(rowEl, "Trending Movies", movies);
+                            const r = rowEl.querySelector('.row');
+                            if (r) r.style.marginTop = '0';
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
+                });
             }
 
-            // 2. Popular Blockbusters (Combined with custom)
-            const combinedPopular = [...customMovies, ...(tmdb.popularMovies || [])];
+            // 2. Popular Movies (Real TMDB Data: Actual real-time popular movies that people are watching globally)
+            const realPopularList = (tmdb.popularMovies && tmdb.popularMovies.length > 0)
+                ? tmdb.popularMovies
+                : (tmdb.trendingMovies && tmdb.trendingMovies.length > 0 ? tmdb.trendingMovies : []);
             const seen = new Set();
-            const uniquePopular = combinedPopular.filter(m => {
+            const uniquePopular = realPopularList.filter(m => {
                 const key = m.id || m.title;
                 if (!key || seen.has(key)) return false;
                 seen.add(key);
                 return true;
             });
-            app.components.createRow(document.getElementById('row-popular-movies'), "Popular Movies", uniquePopular);
-            const rPop = document.getElementById('row-popular-movies').querySelector('.row');
-            if (rPop) rPop.style.marginTop = '0';
+
+            if (uniquePopular.length > 0) {
+                app.components.createRow(document.getElementById('row-popular-movies'), "Popular Movies", uniquePopular);
+                const rPop = document.getElementById('row-popular-movies').querySelector('.row');
+                if (rPop) rPop.style.marginTop = '0';
+            } else {
+                app.services.fetchTmdb('/movie/popular').then(movies => {
+                    if (movies && movies.length > 0) {
+                        app.state.tmdbContent.popularMovies = movies;
+                        const rowEl = document.getElementById('row-popular-movies');
+                        if (rowEl) {
+                            rowEl.innerHTML = '';
+                            app.components.createRow(rowEl, "Popular Movies", movies);
+                            const r = rowEl.querySelector('.row');
+                            if (r) r.style.marginTop = '0';
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
+                });
+            }
 
             // 3. Top Rated Classics (Inception, The Dark Knight, etc.)
             if (tmdb.topRated && tmdb.topRated.length > 0) {
                 app.components.createRow(document.getElementById('row-top-rated-movies'), "Top Rated Classics", tmdb.topRated);
                 const r = document.getElementById('row-top-rated-movies').querySelector('.row');
                 if (r) r.style.marginTop = '0';
+            } else {
+                app.services.fetchTmdb('/movie/top_rated').then(movies => {
+                    if (movies && movies.length > 0) {
+                        app.state.tmdbContent.topRated = movies;
+                        const rowEl = document.getElementById('row-top-rated-movies');
+                        if (rowEl) {
+                            rowEl.innerHTML = '';
+                            app.components.createRow(rowEl, "Top Rated Classics", movies);
+                            const r = rowEl.querySelector('.row');
+                            if (r) r.style.marginTop = '0';
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
+                });
             }
 
             // 4. My Custom Movies
@@ -3453,6 +3500,7 @@ const app = {
 
     services: {
         findItemById: (id) => {
+            if (window.appItemMap && window.appItemMap[id]) return window.appItemMap[id];
             // Check custom content first
             let item = app.state.customContent.find(i => i.id == id);
             if (item) return item;
