@@ -990,7 +990,7 @@ button.close-player:hover {
     }
 
     body {
-        padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+        padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
     }
 
     #app, #app-view, #main-content {
@@ -1343,10 +1343,13 @@ button.close-player:hover {
     }
 
     .poster {
-        width: 115px !important;
-        min-width: 115px !important;
-        border-radius: 6px !important;
+        width: 124px !important;
+        min-width: 124px !important;
+        border-radius: 8px !important;
         scroll-snap-align: start !important;
+        background: #181a20 !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55) !important;
         transition: transform 0.15s ease !important;
     }
 
@@ -1355,7 +1358,17 @@ button.close-player:hover {
     }
 
     .poster-img {
-        border-radius: 6px !important;
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 2 / 3 !important; /* Portrait poster showing official title logo artwork (Hotstar style) */
+        object-fit: cover !important;
+        border-radius: 8px !important;
+        display: block !important;
+    }
+
+    /* Hide redundant grey gradient text bar because title is clearly visible in the picture itself */
+    .poster-title-overlay {
+        display: none !important;
     }
 
     /* Hide hover preview card on touch screen devices */
@@ -1365,18 +1378,19 @@ button.close-player:hover {
         pointer-events: none !important;
     }
 
-    /* 5. Mobile Bottom Navigation Bar */
+    /* 5. Mobile Bottom Navigation Bar (Bigger & Modern like Hotstar) */
     .mobile-bottom-nav {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
-        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-        background: rgba(15, 15, 18, 0.96) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+        height: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px)) 0 !important;
+        background: rgba(14, 16, 22, 0.98) !important;
+        backdrop-filter: blur(24px) !important;
+        -webkit-backdrop-filter: blur(24px) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+        box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.6) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: space-around !important;
@@ -1388,32 +1402,52 @@ button.close-player:hover {
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        color: #8c8c8c !important;
+        color: #8e8e98 !important;
         text-decoration: none !important;
         flex: 1 !important;
         height: 100% !important;
-        gap: 3px !important;
-        transition: color 0.15s ease !important;
+        padding: 2px 0 !important;
+        gap: 2px !important;
+        transition: color 0.15s ease, transform 0.15s ease !important;
         -webkit-tap-highlight-color: transparent !important;
     }
 
-    .mobile-nav-item i {
-        width: 20px !important;
-        height: 20px !important;
+    .mobile-nav-item:active {
+        transform: scale(0.92) !important;
     }
 
+    /* Bigger Icons like Hotstar */
+    .mobile-nav-item i,
+    .mobile-nav-item svg {
+        width: 25px !important;
+        height: 25px !important;
+        stroke-width: 2.1px !important;
+        display: block !important;
+        transition: transform 0.18s ease, color 0.18s ease !important;
+    }
+
+    /* Clean Proportional Typography like Hotstar */
     .mobile-nav-item span {
-        font-size: 0.68rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.3px !important;
+        font-size: 0.76rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.2px !important;
+        margin-top: 3px !important;
+        line-height: 1 !important;
     }
 
     .mobile-nav-item.active {
         color: #ffffff !important;
     }
 
-    .mobile-nav-item.active i {
-        color: #E50914 !important;
+    .mobile-nav-item.active span {
+        font-weight: 600 !important;
+    }
+
+    .mobile-nav-item.active i,
+    .mobile-nav-item.active svg {
+        color: #ffffff !important;
+        stroke: #ffffff !important;
+        transform: scale(1.08) !important;
     }
 
     /* 6. Details Modal on Mobile */

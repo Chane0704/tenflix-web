@@ -3240,13 +3240,12 @@ const app = {
             posters.innerHTML = items.map((item, idx) => {
                 window.appItemMap[item.id] = item;
 
-                let imgPath = 'https://via.placeholder.com/300x169?text=No+Image';
-                if (item.is_custom && item.backdrop_path) {
-                    imgPath = item.backdrop_path;
+                // Prefer poster_path so show name/logo is visible inside the picture itself (Hotstar style)
+                let imgPath = 'https://via.placeholder.com/300x450?text=No+Image';
+                if (item.poster_path) {
+                    imgPath = item.poster_path.startsWith('http') ? item.poster_path : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
                 } else if (item.backdrop_path) {
                     imgPath = item.backdrop_path.startsWith('http') ? item.backdrop_path : `https://image.tmdb.org/t/p/w780${item.backdrop_path}`;
-                } else if (item.poster_path) {
-                    imgPath = item.poster_path.startsWith('http') ? item.poster_path : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
                 }
                 imgPath = app.utils.proxyImg(imgPath);
 
