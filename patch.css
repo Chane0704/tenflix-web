@@ -983,9 +983,17 @@ button.close-player:hover {
     .row-posters {
         display: flex !important;
         gap: 14px !important;
-        padding: 12px 0 24px 0 !important;
+        padding: 12px 0 20px 0 !important;
         overflow-x: auto !important;
-        scrollbar-width: thin !important;
+        scrollbar-width: none !important; /* Hide scrollbar for Firefox */
+        -ms-overflow-style: none !important; /* Hide scrollbar for IE/Edge */
+    }
+
+    .row-posters::-webkit-scrollbar {
+        display: none !important; /* Hide scrollbar for Chrome, Edge, Safari */
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
     }
 
     .poster,
