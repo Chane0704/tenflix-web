@@ -549,6 +549,12 @@ const app = {
         hoverTimer: null,
         hideTimer: null,
         modalObserver: null,
+        lastScrollTime: 0,
+
+        onScrollOrWheel: () => {
+            app.hoverCard.lastScrollTime = Date.now();
+            app.hoverCard.hide();
+        },
 
         isAnyModalOpen: () => {
             if (document.body.classList.contains('modal-open')) return true;
@@ -570,6 +576,10 @@ const app = {
                     app.hoverCard.hide();
                     return;
                 }
+                // Do not trigger hover preview while or immediately after scrolling
+                if (Date.now() - (app.hoverCard.lastScrollTime || 0) < 250) {
+                    return;
+                }
                 const poster = e.target.closest('.poster');
                 if (poster && poster.dataset && poster.dataset.itemId) {
                     if (app.hoverCard.isAnyModalOpen()) return;
@@ -582,7 +592,7 @@ const app = {
                     }
                     if (app.hoverCard.hoverTimer) clearTimeout(app.hoverCard.hoverTimer);
                     app.hoverCard.hoverTimer = setTimeout(() => {
-                        if (!app.hoverCard.isAnyModalOpen()) {
+                        if (!app.hoverCard.isAnyModalOpen() && Date.now() - (app.hoverCard.lastScrollTime || 0) >= 250) {
                             app.hoverCard.show(poster);
                         }
                     }, 220);
@@ -613,7 +623,7 @@ const app = {
             }, true);
 
             card.addEventListener('mouseenter', () => {
-                if (app.hoverCard.isAnyModalOpen()) {
+                if (app.hoverCard.isAnyModalOpen() || Date.now() - (app.hoverCard.lastScrollTime || 0) < 250) {
                     app.hoverCard.hide();
                     return;
                 }
@@ -629,7 +639,25 @@ const app = {
                 app.hoverCard.scheduleHide();
             });
 
-            window.addEventListener('scroll', () => app.hoverCard.hide(), { passive: true });
+            // INSTANTLY DISMISS HOVER CARD ON ANY SCROLL OR WHEEL IN CAPTURE PHASE:
+            // 1. Capture scroll on window and document (catches all .row-posters, body, html)
+            window.addEventListener('scroll', app.hoverCard.onScrollOrWheel, { passive: true, capture: true });
+            document.addEventListener('scroll', app.hoverCard.onScrollOrWheel, { passive: true, capture: true });
+
+            // 2. Capture wheel events (mouse wheel, trackpad two-finger scroll)
+            window.addEventListener('wheel', app.hoverCard.onScrollOrWheel, { passive: true, capture: true });
+            document.addEventListener('wheel', app.hoverCard.onScrollOrWheel, { passive: true, capture: true });
+
+            // 3. Touchmove
+            window.addEventListener('touchmove', app.hoverCard.onScrollOrWheel, { passive: true, capture: true });
+
+            // 4. Keyboard arrow navigation keys (ArrowLeft, ArrowRight, PageUp, etc.)
+            window.addEventListener('keydown', (e) => {
+                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
+                    app.hoverCard.onScrollOrWheel();
+                }
+            }, { passive: true });
+
             window.addEventListener('hashchange', () => app.hoverCard.hide());
 
             // MutationObserver ensures hover card is immediately dismissed if any modal state changes
@@ -685,6 +713,20 @@ const app = {
 
             const rect = anchorEl.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;
+
+            // Anchor visibility check: If poster is scrolled out of viewport or row bounds, abort & hide
+            if (rect.right < 20 || rect.left > window.innerWidth - 20 || rect.bottom < 60 || rect.top > window.innerHeight - 60) {
+                app.hoverCard.hide();
+                return;
+            }
+            const rowEl = anchorEl.closest('.row-posters');
+            if (rowEl) {
+                const rowRect = rowEl.getBoundingClientRect();
+                if (rect.right < rowRect.left + 10 || rect.left > rowRect.right - 10) {
+                    app.hoverCard.hide();
+                    return;
+                }
+            }
 
             const cardWidth = Math.min(360, Math.max(320, rect.width * 1.35));
             let left = rect.left + (rect.width - cardWidth) / 2;
@@ -768,6 +810,7 @@ const app = {
             `;
 
             if (window.lucide) lucide.createIcons({ root: card });
+            card.style.visibility = 'visible';
             card.style.display = 'block';
             card.style.opacity = '1';
             card.style.pointerEvents = 'auto';
@@ -788,6 +831,7 @@ const app = {
                 card.classList.add('hidden');
                 card.style.display = 'none';
                 card.style.opacity = '0';
+                card.style.visibility = 'hidden';
                 card.style.pointerEvents = 'none';
                 app.hoverCard.currentPoster = null;
             }
@@ -3234,6 +3278,13 @@ const app = {
                 <div class="row-posters"></div>
             `;
             const posters = row.querySelector('.row-posters');
+            if (posters) {
+                posters.addEventListener('scroll', () => {
+                    if (app.hoverCard && app.hoverCard.onScrollOrWheel) {
+                        app.hoverCard.onScrollOrWheel();
+                    }
+                }, { passive: true });
+            }
 
             if (!window.appItemMap) window.appItemMap = {};
 
