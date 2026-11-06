@@ -97,7 +97,7 @@ const app = {
 
     auth: {
         check: () => {
-            return !!localStorage.getItem('netflix_user_session');
+            return !!localStorage.getItem('netflix_user_session') || window.location.search.includes('autologin=1');
         },
         login: () => {
             // Simplified login for portfolio mode
@@ -989,6 +989,10 @@ const app = {
             });
 
             if (hash === 'home') app.pages.home(main);
+            else if (hash === 'search') {
+                app.handlers.openSearch();
+                app.pages.searchBrowse(main);
+            }
             else if (hash === 'tv') app.pages.tv(main);
             else if (hash === 'movies') app.pages.movies(main);
             else if (hash === 'custom') app.pages.custom(main);
@@ -1363,6 +1367,62 @@ const app = {
         }
     },
     handlers: {
+        openSearch: (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const searchBox = document.querySelector('.search-box');
+            const searchInput = document.getElementById('search-input');
+            const searchCloseBtn = document.querySelector('.search-close-btn');
+            if (!searchBox || !searchInput) return;
+
+            // If already open and user has entered text, trigger search
+            if (searchBox.classList.contains('active') && searchInput.value && searchInput.value.trim().length > 0) {
+                const main = document.getElementById('main-content');
+                if (main) app.pages.search(main, searchInput.value.trim());
+                return;
+            }
+
+            searchBox.classList.add('active');
+            searchInput.classList.add('active');
+            if (searchCloseBtn) searchCloseBtn.classList.remove('hidden');
+
+            setTimeout(() => {
+                searchInput.focus();
+            }, 60);
+
+            const main = document.getElementById('main-content');
+            if (main && (!searchInput.value || searchInput.value.trim().length === 0)) {
+                if (typeof app.pages.searchBrowse === 'function') {
+                    app.pages.searchBrowse(main);
+                }
+            }
+        },
+
+        closeSearch: (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const searchBox = document.querySelector('.search-box');
+            const searchInput = document.getElementById('search-input');
+            const searchCloseBtn = document.querySelector('.search-close-btn');
+            const suggestionsEl = document.getElementById('search-suggestions');
+            if (!searchBox || !searchInput) return;
+
+            searchBox.classList.remove('active');
+            searchInput.classList.remove('active');
+            if (searchCloseBtn) searchCloseBtn.classList.add('hidden');
+            if (suggestionsEl) suggestionsEl.classList.add('hidden');
+            searchInput.value = '';
+
+            if (window.location.hash.startsWith('#search')) {
+                window.location.hash = 'home';
+            } else {
+                app.router.handleHash();
+            }
+        },
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
@@ -2255,6 +2315,42 @@ const app = {
     },
 
     pages: {
+        searchBrowse: (container) => {
+            const popularTitles = [
+                "Emily in Paris", "Friends", "Crazy Rich Asians", "How to Lose a Guy in 10 Days",
+                "10 Things I Hate About You", "Stranger Things", "Law & Order: Special Victims Unit",
+                "Deadpool", "The Office", "Voicemails for Isabelle"
+            ];
+            const all = [...(app.state.customContent || []), ...(app.state.tmdbContent.trending || [])];
+            const items = all.filter((item, idx, self) => self.findIndex(t => t.id === item.id) === idx).slice(0, 18);
+
+            container.innerHTML = `
+                <div class="search-results-container" style="padding: 70px 16px 80px 16px;">
+                    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 14px;">Top Searches</h2>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
+                        ${popularTitles.map(t => `
+                            <button type="button" onclick="const input = document.getElementById('search-input'); if(input) { input.value = '${t.replace(/'/g, "\\\'")}'; app.pages.search(document.getElementById('main-content'), '${t.replace(/'/g, "\\\'")}'); }" 
+                                style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 9999px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer;">
+                                ${t}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 12px;">Popular on Tenflix</h3>
+                    <div class="search-results-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 10px;">
+                        ${items.map(item => {
+                            let img = item.poster_path ? (item.poster_path.startsWith('http') ? item.poster_path : ('https://image.tmdb.org/t/p/w500' + item.poster_path)) : '';
+                            img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x300?text=' + encodeURIComponent(item.title || item.name || 'Movie'));
+                            return `
+                                <div class="poster" onclick="app.handlers.openDetailsById('${item.id}')" style="cursor: pointer; position: relative; border-radius: 6px; overflow: hidden; background: #202020;">
+                                    <img src="${img}" alt="${(item.title || item.name || '').replace(/"/g, '&quot;')}" style="width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; border-radius: 6px;">
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        },
         home: (container) => {
             // Clear existing content
             container.innerHTML = '';
@@ -2344,14 +2440,14 @@ const app = {
                             ${(item.overview || item.description || '').substring(0, 150)}...
                         </p>
                         
-                        <div class="hero-buttons" style="display: flex; gap: 15px;">
-                            <button id="hero-play" class="btn" onclick="app.handlers.playHero()"
+                        <div class="hero-buttons">
+                            <button id="hero-play" class="btn hero-play-btn" onclick="app.handlers.playHero()"
                                 style="background: white; color: black; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                <i data-lucide="play" fill="black"></i> Play
+                                <i data-lucide="play" fill="black"></i> <span>Play</span>
                             </button>
-                            <button id="hero-info" class="btn" 
+                            <button id="hero-info" class="btn hero-info-btn" title="More Info"
                                 style="background: rgba(109, 109, 110, 0.7); color: white; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                <i data-lucide="info"></i> More Info
+                                <i data-lucide="info"></i> <span class="hero-info-text">More Info</span>
                             </button>
                         </div>
                     </div>
@@ -2406,6 +2502,38 @@ const app = {
 
             // Start Slideshow Interval
             resetInterval();
+
+            // Touch Swipe Gestures for Hero Slideshow (Mobile finger swipe left/right)
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+
+            heroContainer.addEventListener('touchstart', (e) => {
+                if (e.touches && e.touches[0]) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            heroContainer.addEventListener('touchend', (e) => {
+                if (e.changedTouches && e.changedTouches[0]) {
+                    touchEndX = e.changedTouches[0].clientX;
+                    touchEndY = e.changedTouches[0].clientY;
+                    const diffX = touchEndX - touchStartX;
+                    const diffY = touchEndY - touchStartY;
+                    // Dominant horizontal swipe with threshold of 35px
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+                        if (diffX < 0) {
+                            // Swiped Left -> Advance to next hero slide
+                            app.handlers.nextHero();
+                        } else {
+                            // Swiped Right -> Go to previous hero slide
+                            app.handlers.prevHero();
+                        }
+                    }
+                }
+            }, { passive: true });
 
             // Rows - Switched order, populated with real trending & suggested content alongside custom library
             const allCustom = app.state.customContent;

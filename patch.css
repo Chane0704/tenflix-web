@@ -981,9 +981,23 @@ button.close-player:hover {
 }
 
 @media (max-width: 768px) {
-    /* 1. Base Mobile Layout & Safe Scrolling */
+    /* 1. Base Mobile Layout & Safe Scrolling (Strict No-Overflow Boundary) */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+
     body {
         padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    #app, #app-view, #main-content {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
     }
 
     #main-content {
@@ -1049,10 +1063,40 @@ button.close-player:hover {
         bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
     }
 
-    /* Search Box on Mobile */
+    /* Search Bar Icon Buttons on Mobile */
+    .search-icon-btn {
+        background: none !important;
+        border: none !important;
+        padding: 8px !important;
+        color: #ffffff !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    .search-close-btn {
+        background: none !important;
+        border: none !important;
+        padding: 8px !important;
+        color: #ffffff !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
     .search-box {
         margin-right: 0 !important;
-        padding: 4px !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     .search-box:not(.active) input#search-input {
@@ -1067,80 +1111,184 @@ button.close-player:hover {
     .search-box.active {
         position: fixed !important;
         top: 8px !important;
-        left: 12px !important;
-        right: 12px !important;
-        height: 42px !important;
-        background: #141414 !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-radius: 8px !important;
-        z-index: 2000 !important;
-        padding: 0 12px !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8) !important;
+        left: 10px !important;
+        right: 10px !important;
+        height: 48px !important;
+        background: #14161d !important;
+        border: 1px solid rgba(255, 255, 255, 0.35) !important;
+        border-radius: 12px !important;
+        z-index: 2147483640 !important; /* Above everything */
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 8px !important;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.95) !important;
     }
 
     .search-box.active input#search-input {
+        display: block !important;
         width: 100% !important;
         opacity: 1 !important;
-        font-size: 0.95rem !important;
-        margin-left: 8px !important;
+        pointer-events: auto !important;
+        font-size: 1rem !important;
+        margin: 0 6px !important;
         background: transparent !important;
-        color: #fff !important;
+        color: #ffffff !important;
+        border: none !important;
+        outline: none !important;
     }
 
-    /* 3. Hero Section on Mobile */
+    .search-box.active .search-suggestions-dropdown {
+        position: fixed !important;
+        top: 62px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+        z-index: 2147483645 !important;
+        border-radius: 10px !important;
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* 3. Hero Section on Mobile (Strictly centered, 80/20 buttons, circle (i)) */
     .hero {
         height: 72vh !important;
         min-height: 480px !important;
         max-height: 560px !important;
-        padding: 0 16px !important;
+        padding: 0 !important;
         background-position: center center !important;
+        background-size: cover !important;
+        touch-action: pan-y !important; /* Allow smooth horizontal swipe gestures while keeping vertical scroll */
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        position: relative !important;
     }
 
     .hero-content {
-        left: 16px !important;
-        right: 16px !important;
-        bottom: 38px !important;
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
         max-width: 100% !important;
-        padding: 0 !important;
-        text-align: left !important;
+        padding: 0 16px 44px 16px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        z-index: 10 !important;
+    }
+
+    /* Center series badge if present */
+    .hero-content > div:first-child,
+    .hero-series-badge {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto 8px auto !important;
+        width: 100% !important;
+        text-align: center !important;
     }
 
     .hero-title {
         font-size: 2.1rem !important;
         line-height: 1.12 !important;
-        margin-bottom: 8px !important;
+        margin: 0 auto 8px auto !important;
         font-weight: 800 !important;
         text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9) !important;
+        text-align: center !important;
+        width: 100% !important;
     }
 
     .hero-desc {
-        font-size: 0.9rem !important;
+        font-size: 0.88rem !important;
         line-height: 1.35 !important;
-        margin-bottom: 14px !important;
+        margin: 0 auto 16px auto !important;
         display: -webkit-box !important;
         -webkit-line-clamp: 3 !important;
         -webkit-box-orient: vertical !important;
         overflow: hidden !important;
-        max-width: 100% !important;
+        max-width: 320px !important;
         text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9) !important;
+        text-align: center !important;
+        width: 100% !important;
     }
 
+    /* Buttons Container: Centered on mobile */
     .hero-buttons {
         display: flex !important;
-        gap: 10px !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
         width: 100% !important;
-        margin-bottom: 0 !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
     }
 
-    .hero-buttons .btn,
-    #hero-play,
-    #hero-info {
-        flex: 1 !important;
-        justify-content: center !important;
-        padding: 10px 14px !important;
-        font-size: 0.95rem !important;
+    /* Play Button takes 80% */
+    .hero-play-btn,
+    #hero-play {
+        flex: 0 0 calc(80% - 6px) !important;
+        width: calc(80% - 6px) !important;
+        max-width: calc(80% - 6px) !important;
+        height: 44px !important;
+        background: #ffffff !important;
+        color: #000000 !important;
         border-radius: 6px !important;
-        height: 42px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 0 !important;
+        border: none !important;
+        box-sizing: border-box !important;
+        cursor: pointer !important;
+    }
+
+    /* More Info Button takes 20% and shows ONLY the (i) circle */
+    .hero-info-btn,
+    #hero-info {
+        flex: 0 0 calc(20% - 2px) !important;
+        width: calc(20% - 2px) !important;
+        max-width: calc(20% - 2px) !important;
+        height: 44px !important;
+        background: rgba(109, 109, 110, 0.7) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        border: none !important;
+        box-sizing: border-box !important;
+        cursor: pointer !important;
+    }
+
+    /* Hide the text "More Info" so ONLY the (i) circle icon displays */
+    .hero-info-text {
+        display: none !important;
+    }
+
+    .hero-info-btn i,
+    #hero-info i,
+    .hero-info-btn svg,
+    #hero-info svg {
+        width: 22px !important;
+        height: 22px !important;
+        margin: 0 !important;
     }
 
     /* Fix Pagination Dots Collision on Mobile */
@@ -1163,6 +1311,10 @@ button.close-player:hover {
     .row {
         padding: 0 16px !important;
         margin-bottom: 22px !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
     }
 
     .row-title {

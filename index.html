@@ -71,10 +71,14 @@
                     </div>
                 </div>
                 <div class="nav-actions">
-                    <div class="search-box">
-                        <i data-lucide="search" class="search-icon"></i>
-                        <input type="text" id="search-input" class="search-input" placeholder="Titles, people, genres" autocomplete="off">
-                        <i data-lucide="x" class="search-close hidden"></i>
+                    <div class="search-box" id="search-box">
+                        <button type="button" class="search-icon-btn" onclick="app.handlers.openSearch(event)" aria-label="Search">
+                            <i data-lucide="search" class="search-icon"></i>
+                        </button>
+                        <input type="text" id="search-input" class="search-input" placeholder="Search movies, TV shows, actors..." autocomplete="off">
+                        <button type="button" class="search-close-btn hidden" onclick="app.handlers.closeSearch(event)" aria-label="Close search">
+                            <i data-lucide="x" class="search-close"></i>
+                        </button>
                         <div id="search-suggestions" class="search-suggestions-dropdown hidden"></div>
                     </div>
 
@@ -133,9 +137,9 @@
                     <i data-lucide="film"></i>
                     <span>Movies</span>
                 </a>
-                <a href="#new" class="mobile-nav-item" data-hash="new">
-                    <i data-lucide="sparkles"></i>
-                    <span>New</span>
+                <a href="#search" class="mobile-nav-item" data-hash="search" onclick="app.handlers.openSearch(event)">
+                    <i data-lucide="search"></i>
+                    <span>Search</span>
                 </a>
                 <a href="#custom" class="mobile-nav-item" data-hash="custom">
                     <i data-lucide="plus-square"></i>
@@ -242,9 +246,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=MOBILE_OPTIMIZED_V9">
+    <link rel="stylesheet" href="patch.css?v=MOBILE_FINAL_V11">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=MOBILE_OPTIMIZED_V9" defer></script>
+    <script src="script.js?v=MOBILE_FINAL_V11" defer></script>
 </body>
 
 </html>
