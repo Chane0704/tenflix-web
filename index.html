@@ -73,7 +73,7 @@
                 <div class="nav-actions">
                     <div class="search-box">
                         <i data-lucide="search" class="search-icon"></i>
-                        <input type="text" id="search-input" placeholder="Titles, people, genres" autocomplete="off">
+                        <input type="text" id="search-input" class="search-input" placeholder="Titles, people, genres" autocomplete="off">
                         <i data-lucide="x" class="search-close hidden"></i>
                         <div id="search-suggestions" class="search-suggestions-dropdown hidden"></div>
                     </div>
@@ -118,6 +118,31 @@
             <main id="main-content">
                 <!-- Dynamic Content Injected Here -->
             </main>
+
+            <!-- Mobile Bottom Navigation Bar (Hidden on PC/Laptop, Visible on Mobile) -->
+            <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+                <a href="#home" class="mobile-nav-item active" data-hash="home">
+                    <i data-lucide="home"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#tv" class="mobile-nav-item" data-hash="tv">
+                    <i data-lucide="tv"></i>
+                    <span>TV Shows</span>
+                </a>
+                <a href="#movies" class="mobile-nav-item" data-hash="movies">
+                    <i data-lucide="film"></i>
+                    <span>Movies</span>
+                </a>
+                <a href="#new" class="mobile-nav-item" data-hash="new">
+                    <i data-lucide="sparkles"></i>
+                    <span>New</span>
+                </a>
+                <a href="#custom" class="mobile-nav-item" data-hash="custom">
+                    <i data-lucide="plus-square"></i>
+                    <span>My List</span>
+                </a>
+            </nav>
+
 
             <!-- Site Footer (Netflix Compliant Style) -->
             <footer class="site-footer">
@@ -217,9 +242,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=SERIES_SEASONS_AND_PLAYER_NAV_V7">
+    <link rel="stylesheet" href="patch.css?v=MOBILE_OPTIMIZED_V8">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=SERIES_SEASONS_AND_PLAYER_NAV_V7" defer></script>
+    <script src="script.js?v=MOBILE_OPTIMIZED_V8" defer></script>
 </body>
 
 </html>

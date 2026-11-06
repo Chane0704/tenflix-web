@@ -983,6 +983,11 @@ const app = {
                 if (link.getAttribute('href') === '#' + hash) link.classList.add('active');
             });
 
+            document.querySelectorAll('.mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href') === '#' + hash) item.classList.add('active');
+            });
+
             if (hash === 'home') app.pages.home(main);
             else if (hash === 'tv') app.pages.tv(main);
             else if (hash === 'movies') app.pages.movies(main);
@@ -2352,7 +2357,7 @@ const app = {
                     </div>
 
                     <!-- Pagination Dots -->
-                    <div style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
+                    <div class="hero-pagination-dots" style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
                         ${heroItems.map((_, idx) => `
                             <div onclick="app.handlers.setHero(${idx})" style="width: 10px; height: 10px; border-radius: 50%; background: ${idx === currentHeroIndex ? 'white' : 'rgba(255,255,255,0.5)'}; cursor: pointer; transition: background 0.3s;"></div>
                         `).join('')}
