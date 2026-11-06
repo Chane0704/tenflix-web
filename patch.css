@@ -1821,3 +1821,24 @@ button.close-player:hover {
         gap: 10px !important;
     }
 }
+
+/* Hero Slide Clickable Affordance (Entire banner opens More Info) */
+.hero {
+    cursor: pointer !important;
+}
+
+.hero-overlay {
+    pointer-events: none !important;
+}
+
+.hero-content {
+    cursor: pointer !important;
+}
+
+.hero-play-btn,
+.hero-info-btn,
+.slider-arrow,
+.hero-pagination-dots {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}

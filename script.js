@@ -2510,7 +2510,36 @@ const app = {
             const heroContainer = document.createElement('div');
             heroContainer.className = 'hero';
             heroContainer.style.transition = 'background-image 1s ease-in-out';
+            heroContainer.style.cursor = 'pointer';
             container.appendChild(heroContainer);
+
+            let heroSwiped = false;
+
+            // Clicking anywhere on the big hero slide picture/content opens the More Info modal
+            heroContainer.addEventListener('click', (e) => {
+                if (heroSwiped) {
+                    heroSwiped = false;
+                    return;
+                }
+                // Do not intercept clicks on Play button
+                if (e.target.closest('#hero-play') || e.target.closest('.hero-play-btn')) {
+                    return;
+                }
+                // Do not intercept clicks on slide navigation arrows
+                if (e.target.closest('.slider-arrow')) {
+                    return;
+                }
+                // Do not intercept clicks on pagination dots
+                if (e.target.closest('.hero-pagination-dots')) {
+                    return;
+                }
+
+                // Everywhere else on the picture / slide opens More Info!
+                const currentItem = heroItems[currentHeroIndex] || window.currentHeroItem;
+                if (currentItem) {
+                    app.router.openDetails(currentItem);
+                }
+            });
 
             function renderHero(item) {
                 if (!item) return;
@@ -2524,6 +2553,7 @@ const app = {
                 heroImg = app.utils.proxyImg(heroImg);
 
                 heroContainer.style.backgroundImage = `url('${heroImg}')`;
+                heroContainer.setAttribute('title', `Click to view details for ${item.title || item.name || 'this title'}`);
 
                 // Fix for Emily in Paris header cropping
                 if (item.id === 'emily_in_paris' || (item.title && item.title.includes('Emily in Paris'))) {
@@ -2536,19 +2566,19 @@ const app = {
                 }
 
                 heroContainer.innerHTML = `
-                    <div class="hero-overlay" style="background: linear-gradient(to top, #141414 10%, transparent 90%);"></div>
+                    <div class="hero-overlay" style="background: linear-gradient(to top, #141414 10%, transparent 90%); pointer-events: none;"></div>
                     
                     <!-- Left Arrow -->
-                    <button class="slider-arrow left" onclick="app.handlers.prevHero()" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
+                    <button class="slider-arrow left" onclick="event.stopPropagation(); app.handlers.prevHero()" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
                         <i data-lucide="chevron-left" width="40" height="40"></i>
                     </button>
 
                     <!-- Right Arrow -->
-                    <button class="slider-arrow right" onclick="app.handlers.nextHero()" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
+                    <button class="slider-arrow right" onclick="event.stopPropagation(); app.handlers.nextHero()" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; z-index: 10; opacity: 0; transition: opacity 0.3s;">
                         <i data-lucide="chevron-right" width="40" height="40"></i>
                     </button>
 
-                    <div class="hero-content" style="max-width: 600px; padding-bottom: 100px; animation: fadeIn 0.5s;">
+                    <div class="hero-content" style="max-width: 600px; padding-bottom: 100px; animation: fadeIn 0.5s; cursor: pointer;">
                         <div style="display: flex; align-items: center; margin-bottom: 15px;">
                             <span style="color: #E50914; font-weight: 800; font-size: 2.5rem; margin-right: 2px;">T</span>
                             <span style="color: #ddd; font-weight: 500; letter-spacing: 5px; font-size: 0.9rem; margin-top: 5px;">SERIES</span>
@@ -2563,11 +2593,11 @@ const app = {
                         </p>
                         
                         <div class="hero-buttons">
-                            <button id="hero-play" class="btn hero-play-btn" onclick="app.handlers.playHero()"
+                            <button id="hero-play" class="btn hero-play-btn" onclick="event.stopPropagation(); app.handlers.playHero()"
                                 style="background: white; color: black; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
                                 <i data-lucide="play" fill="black"></i> <span>Play</span>
                             </button>
-                            <button id="hero-info" class="btn hero-info-btn" title="More Info"
+                            <button id="hero-info" class="btn hero-info-btn" title="More Info" onclick="event.stopPropagation(); app.router.openDetails(window.currentHeroItem)"
                                 style="background: rgba(109, 109, 110, 0.7); color: white; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
                                 <i data-lucide="info"></i> <span class="hero-info-text">More Info</span>
                             </button>
@@ -2575,9 +2605,9 @@ const app = {
                     </div>
 
                     <!-- Pagination Dots -->
-                    <div class="hero-pagination-dots" style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
+                    <div class="hero-pagination-dots" onclick="event.stopPropagation();" style="position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
                         ${heroItems.map((_, idx) => `
-                            <div onclick="app.handlers.setHero(${idx})" style="width: 10px; height: 10px; border-radius: 50%; background: ${idx === currentHeroIndex ? 'white' : 'rgba(255,255,255,0.5)'}; cursor: pointer; transition: background 0.3s;"></div>
+                            <div onclick="event.stopPropagation(); app.handlers.setHero(${idx})" style="width: 10px; height: 10px; border-radius: 50%; background: ${idx === currentHeroIndex ? 'white' : 'rgba(255,255,255,0.5)'}; cursor: pointer; transition: background 0.3s;"></div>
                         `).join('')}
                     </div>
 
@@ -2590,7 +2620,7 @@ const app = {
                 // Re-bind listeners because innerHTML wiped them logic
                 window.currentHeroItem = item;
                 const infoBtn = heroContainer.querySelector('#hero-info');
-                if (infoBtn) infoBtn.onclick = () => app.router.openDetails(item);
+                if (infoBtn) infoBtn.onclick = (e) => { e.stopPropagation(); app.router.openDetails(item); };
 
                 lucide.createIcons();
             }
@@ -2632,6 +2662,7 @@ const app = {
             let touchEndY = 0;
 
             heroContainer.addEventListener('touchstart', (e) => {
+                heroSwiped = false;
                 if (e.touches && e.touches[0]) {
                     touchStartX = e.touches[0].clientX;
                     touchStartY = e.touches[0].clientY;
@@ -2646,6 +2677,7 @@ const app = {
                     const diffY = touchEndY - touchStartY;
                     // Dominant horizontal swipe with threshold of 35px
                     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+                        heroSwiped = true;
                         if (diffX < 0) {
                             // Swiped Left -> Advance to next hero slide
                             app.handlers.nextHero();
