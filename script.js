@@ -910,7 +910,7 @@ const app = {
                 app.utils.unfreezePage();
             });
 
-            // Handle Escape key
+            // Handle Escape key (closes player, modals, and search bar)
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     if (window.isPlayerActive) {
@@ -919,6 +919,26 @@ const app = {
                         const m = document.getElementById('modal-container');
                         if (m && !m.classList.contains('hidden')) {
                             app.handlers.closeDetails();
+                        } else {
+                            const searchBox = document.querySelector('.search-box');
+                            if (searchBox && searchBox.classList.contains('active')) {
+                                app.handlers.closeSearch(e);
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Auto-collapse search when clicking outside or clicking navigation links
+            document.addEventListener('click', (e) => {
+                const searchBox = document.querySelector('.search-box');
+                if (!searchBox || !searchBox.classList.contains('active')) return;
+                if (!searchBox.contains(e.target) && !e.target.closest('[data-hash="search"]')) {
+                    const searchInput = document.getElementById('search-input');
+                    const isNavClick = e.target.closest('.nav-links') || e.target.closest('.mobile-nav-item');
+                    if (isNavClick || !searchInput || !searchInput.value || searchInput.value.trim().length === 0) {
+                        if (app.handlers && app.handlers.collapseSearch) {
+                            app.handlers.collapseSearch();
                         }
                     }
                 }
@@ -1031,6 +1051,13 @@ const app = {
                 item.classList.remove('active');
                 if (item.getAttribute('href') === '#' + hash) item.classList.add('active');
             });
+
+            // Cleanly collapse search bar on navigating to any other view
+            if (hash !== 'search') {
+                if (app.handlers && app.handlers.collapseSearch) {
+                    app.handlers.collapseSearch();
+                }
+            }
 
             if (hash === 'home') app.pages.home(main);
             else if (hash === 'search') {
@@ -1444,22 +1471,29 @@ const app = {
             }
         },
 
+        collapseSearch: () => {
+            const searchBox = document.querySelector('.search-box');
+            const searchInput = document.getElementById('search-input');
+            const searchCloseBtn = document.querySelector('.search-close-btn');
+            const suggestionsEl = document.getElementById('search-suggestions');
+            if (searchBox) searchBox.classList.remove('active');
+            if (searchInput) {
+                searchInput.classList.remove('active');
+                searchInput.value = '';
+                searchInput.blur();
+            }
+            if (searchCloseBtn) searchCloseBtn.classList.add('hidden');
+            if (suggestionsEl) suggestionsEl.classList.add('hidden');
+        },
+
         closeSearch: (e) => {
             if (e) {
                 e.preventDefault();
                 e.stopPropagation();
             }
-            const searchBox = document.querySelector('.search-box');
-            const searchInput = document.getElementById('search-input');
-            const searchCloseBtn = document.querySelector('.search-close-btn');
-            const suggestionsEl = document.getElementById('search-suggestions');
-            if (!searchBox || !searchInput) return;
-
-            searchBox.classList.remove('active');
-            searchInput.classList.remove('active');
-            if (searchCloseBtn) searchCloseBtn.classList.add('hidden');
-            if (suggestionsEl) suggestionsEl.classList.add('hidden');
-            searchInput.value = '';
+            if (app.handlers && app.handlers.collapseSearch) {
+                app.handlers.collapseSearch();
+            }
 
             if (window.location.hash.startsWith('#search')) {
                 window.location.hash = 'home';

@@ -87,10 +87,27 @@ body {
     /* Spacing to the left of Notifications */
 }
 
+.search-icon-btn,
+.search-close-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
+    margin: 0;
+    color: #e5e5e5;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
+}
+
 .search-box.active {
-    background: black;
-    border: 1px solid white;
+    background: rgba(18, 20, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 4px;
     padding: 5px 10px;
+    backdrop-filter: blur(10px);
 }
 
 .search-input {

@@ -5,6 +5,114 @@
     max-width: none !important;
 }
 
+/* Base Search Icon & Close Buttons (clean transparent styling, no white boxes) */
+.search-icon-btn,
+.search-close-btn {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #e5e5e5 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+    line-height: 1 !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    transition: color 0.2s ease, transform 0.2s ease !important;
+}
+
+.search-icon-btn:hover,
+.search-close-btn:hover {
+    color: #ffffff !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.search-icon-btn:focus,
+.search-close-btn:focus,
+.search-icon-btn:active,
+.search-close-btn:active {
+    outline: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.search-icon-btn .search-icon,
+.search-close-btn .search-close {
+    width: 20px !important;
+    height: 20px !important;
+    stroke: currentColor !important;
+}
+
+/* Desktop Search Box in Navbar (Netflix Sleek Dark Aesthetic) */
+@media (min-width: 769px) {
+    .search-box {
+        display: inline-flex !important;
+        align-items: center !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        padding: 4px 6px !important;
+        border-radius: 4px !important;
+        transition: background 0.25s ease, border-color 0.25s ease, width 0.3s ease !important;
+        margin-right: 15px !important;
+        position: relative !important;
+    }
+
+    .search-box:not(.active) {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .search-box:not(.active) .search-input {
+        width: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        padding: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+
+    .search-box:not(.active) .search-close-btn {
+        display: none !important;
+    }
+
+    .search-box.active {
+        background: rgba(18, 20, 24, 0.92) !important;
+        border: 1px solid rgba(255, 255, 255, 0.45) !important;
+        border-radius: 4px !important;
+        padding: 4px 10px !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.75) !important;
+    }
+
+    .search-box.active .search-input {
+        width: 250px !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        color: #ffffff !important;
+        font-size: 0.92rem !important;
+        padding: 2px 8px !important;
+        margin: 0 !important;
+    }
+
+    .search-box.active .search-close-btn {
+        display: inline-flex !important;
+        margin-left: 4px !important;
+    }
+}
+
 /* Search Suggestions Dropdown (Prime Video & Netflix inspired) */
 .search-box {
     position: relative !important;
