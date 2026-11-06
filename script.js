@@ -18,6 +18,123 @@ const app = {
             apiKey: localStorage.getItem('netflix_tmdb_key') || 'd582a5bf11361f97f2946cbb1cc55ce8'
         }
     },
+    watchlist: {
+        STORAGE_KEY: 'tenflix_watchlist',
+
+        get: () => {
+            try {
+                const data = localStorage.getItem('tenflix_watchlist');
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error("Failed to read watchlist:", e);
+                return [];
+            }
+        },
+
+        save: (list) => {
+            try {
+                localStorage.setItem('tenflix_watchlist', JSON.stringify(list));
+            } catch (e) {
+                console.error("Failed to save watchlist:", e);
+            }
+        },
+
+        has: (id) => {
+            if (!id) return false;
+            const list = app.watchlist.get();
+            return list.some(item => String(item.id) === String(id));
+        },
+
+        toggle: (id, btn) => {
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id) || window.currentItem;
+            if (!item) {
+                console.warn("Item not found to toggle watchlist:", id);
+                return false;
+            }
+
+            let list = app.watchlist.get();
+            const existingIdx = list.findIndex(i => String(i.id) === String(id));
+            let isAdded = false;
+
+            if (existingIdx !== -1) {
+                // Remove from watchlist
+                list.splice(existingIdx, 1);
+                isAdded = false;
+            } else {
+                // Add to watchlist
+                const watchItem = {
+                    id: item.id,
+                    title: item.title || item.name || 'Untitled',
+                    name: item.name || item.title || 'Untitled',
+                    overview: item.overview || item.description || '',
+                    description: item.description || item.overview || '',
+                    poster_path: item.poster_path || item.backdrop_path || '',
+                    backdrop_path: item.backdrop_path || item.poster_path || '',
+                    release_date: item.release_date || item.first_air_date || '',
+                    first_air_date: item.first_air_date || item.release_date || '',
+                    genre: item.genre || (item.genres && item.genres.map(g => g.name).join(', ')) || '',
+                    type: item.type || (item.episodes ? 'tv' : 'movie'),
+                    added_at: Date.now()
+                };
+                list.unshift(watchItem);
+                isAdded = true;
+            }
+
+            app.watchlist.save(list);
+
+            // Update caller button
+            if (btn) {
+                app.watchlist.updateButtonState(btn, isAdded);
+            }
+
+            // Sync other buttons for this item currently rendered on page
+            document.querySelectorAll(`[data-watchlist-btn="${id}"]`).forEach(b => {
+                if (b !== btn) app.watchlist.updateButtonState(b, isAdded);
+            });
+
+            // If user is currently viewing the Watchlist page, re-render it dynamically
+            const currentHash = (window.location.hash || '').substring(1);
+            if (['watchlist', 'my-list', 'custom'].includes(currentHash)) {
+                const main = document.getElementById('main-content');
+                if (main && app.pages && app.pages.watchlist) {
+                    app.pages.watchlist(main);
+                }
+            }
+
+            return isAdded;
+        },
+
+        updateButtonState: (btn, isAdded) => {
+            if (!btn) return;
+            if (isAdded) {
+                btn.classList.add('active');
+                btn.title = 'In My Watchlist (Click to remove)';
+                btn.setAttribute('aria-label', 'In My Watchlist');
+                const labelSpan = btn.querySelector('span');
+                if (labelSpan) labelSpan.textContent = 'In Watchlist';
+                const icon = btn.querySelector('i, svg');
+                if (icon) {
+                    icon.setAttribute('data-lucide', 'check');
+                } else {
+                    btn.innerHTML = '<i data-lucide="check"></i>' + (labelSpan ? ' <span>In Watchlist</span>' : '');
+                }
+            } else {
+                btn.classList.remove('active');
+                btn.title = 'Add to My Watchlist';
+                btn.setAttribute('aria-label', 'Add to My Watchlist');
+                const labelSpan = btn.querySelector('span');
+                if (labelSpan) labelSpan.textContent = 'Watchlist';
+                const icon = btn.querySelector('i, svg');
+                if (icon) {
+                    icon.setAttribute('data-lucide', 'plus');
+                } else {
+                    btn.innerHTML = '<i data-lucide="plus"></i>' + (labelSpan ? ' <span>Watchlist</span>' : '');
+                }
+            }
+            if (window.lucide) lucide.createIcons({ root: btn });
+        }
+    },
+
 
     utils: {
         unfreezePage: () => {
@@ -812,7 +929,7 @@ const app = {
             const genre = item.genre || (item.media_type === 'tv' ? 'Series' : 'Drama');
             const desc = (item.overview || item.description || 'Watch now on Tenflix in Ultra HD quality. Stream on any device.').substring(0, 160) + '...';
 
-            const isInMyList = (app.state.customContent || []).some(c => c.id == item.id);
+            const isInMyList = app.watchlist ? app.watchlist.has(item.id) : false;
 
             // Clean thumbnail with NO duplicated title overlay; title is cleanly presented below
             card.innerHTML = `
@@ -832,7 +949,7 @@ const app = {
                         <button class="hover-btn-circle" title="More Info" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.openDetailsById('${item.id}')">
                             <i data-lucide="info"></i>
                         </button>
-                        <button class="hover-btn-circle ${isInMyList ? 'active' : ''}" title="${isInMyList ? 'In My List' : 'Add to My List'}" onclick="event.stopPropagation(); app.handlers.toggleMyList('${item.id}', this)">
+                        <button class="hover-btn-circle ${isInMyList ? 'active' : ''}" data-watchlist-btn="${item.id}" title="${isInMyList ? 'In My Watchlist (Click to remove)' : 'Add to My Watchlist'}" onclick="event.stopPropagation(); app.watchlist.toggle('${item.id}', this)">
                             <i data-lucide="${isInMyList ? 'check' : 'plus'}"></i>
                         </button>
                     </div>
@@ -1110,7 +1227,8 @@ const app = {
             }
             else if (hash === 'tv') app.pages.tv(main);
             else if (hash === 'movies') app.pages.movies(main);
-            else if (hash === 'custom') app.pages.custom(main);
+            else if (hash === 'watchlist' || hash === 'custom' || hash === 'my-list') app.pages.watchlist(main);
+            else if (hash === 'custom-admin') app.pages.custom(main);
             else if (hash === 'add') app.pages.addContent(main);
             else if (hash.startsWith('edit=')) {
                 const id = hash.split('=')[1];
@@ -1400,6 +1518,14 @@ const app = {
                                 <div class="modal-actions" style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
                                     <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})">
                                         <i data-lucide="play" fill="black"></i> Play
+                                    </button>
+                                    <button class="btn btn-secondary ${(app.watchlist && app.watchlist.has(item.id)) ? 'active' : ''}" 
+                                            data-watchlist-btn="${item.id}"
+                                            onclick="app.watchlist.toggle('${item.id}', this)"
+                                            title="${(app.watchlist && app.watchlist.has(item.id)) ? 'In My Watchlist (Click to remove)' : 'Add to My Watchlist'}"
+                                            style="display: inline-flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="${(app.watchlist && app.watchlist.has(item.id)) ? 'check' : 'plus'}"></i>
+                                        <span>${(app.watchlist && app.watchlist.has(item.id)) ? 'In Watchlist' : 'Watchlist'}</span>
                                     </button>
                                     ${item.is_custom && (app.customTmdbMap[item.id] || item.id) ? `
                                         <button class="btn btn-secondary" onclick="app.handlers.playServer2('${item.id}')" title="Play alternative HD stream if Drive is blocked">
@@ -2437,6 +2563,80 @@ const app = {
     },
 
     pages: {
+        watchlist: (container) => {
+            const list = app.watchlist.get();
+
+            if (!list || list.length === 0) {
+                container.innerHTML = `
+                    <div class="watchlist-empty-state" style="min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 20px 80px 20px; color: white;">
+                        <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                            <i data-lucide="bookmark" style="width: 36px; height: 36px; color: #E50914;"></i>
+                        </div>
+                        <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.5px;">Your Watchlist is Empty</h2>
+                        <p style="font-size: 1.05rem; color: #aaa; max-width: 480px; line-height: 1.5; margin-bottom: 30px;">
+                            Explore movies and TV shows across TenFlix and click the <strong style="color: #fff;">+</strong> icon to save them here for easy watching later.
+                        </p>
+                        <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;">
+                            <a href="#home" class="btn btn-primary" style="text-decoration: none; padding: 10px 24px; font-weight: 600; border-radius: 6px;">
+                                Explore Home
+                            </a>
+                            <a href="#movies" class="btn btn-secondary" style="text-decoration: none; padding: 10px 24px; font-weight: 600; border-radius: 6px;">
+                                Browse Movies
+                            </a>
+                            <a href="#tv" class="btn btn-secondary" style="text-decoration: none; padding: 10px 24px; font-weight: 600; border-radius: 6px;">
+                                Browse TV Shows
+                            </a>
+                        </div>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="watchlist-container">
+                    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <h1 style="font-size: 2rem; font-weight: 800; color: #fff; margin: 0; letter-spacing: -0.5px;">My Watchlist</h1>
+                            <span style="background: rgba(229, 9, 20, 0.2); color: #E50914; border: 1px solid rgba(229, 9, 20, 0.4); padding: 3px 10px; border-radius: 9999px; font-size: 0.85rem; font-weight: 700;">
+                                ${list.length} ${list.length === 1 ? 'title' : 'titles'}
+                            </span>
+                        </div>
+                        <div style="font-size: 0.88rem; color: #888;">
+                            Saved privately to this device
+                        </div>
+                    </div>
+
+                    <div class="search-results-grid">
+                        ${list.map(item => {
+                            if (!window.appItemMap) window.appItemMap = {};
+                            window.appItemMap[item.id] = item;
+
+                            let img = item.poster_path ? (item.poster_path.startsWith('http') ? item.poster_path : ('https://image.tmdb.org/t/p/w500' + item.poster_path)) : '';
+                            if (!img && item.backdrop_path) {
+                                img = item.backdrop_path.startsWith('http') ? item.backdrop_path : ('https://image.tmdb.org/t/p/w780' + item.backdrop_path);
+                            }
+                            img = app.utils.proxyImg(img || 'https://via.placeholder.com/300x450/181818/ffffff?text=' + encodeURIComponent(item.title || item.name || 'Movie'));
+                            const title = (item.title || item.name || 'Untitled').replace(/"/g, '&quot;');
+
+                            return `
+                                <div class="poster" data-item-id="${item.id}" onclick="app.handlers.openDetailsById('${item.id}')" style="position: relative;">
+                                    <img src="${img}" alt="${title}" class="poster-img" loading="lazy">
+                                    <button type="button" 
+                                            class="watchlist-remove-btn" 
+                                            title="Remove from Watchlist"
+                                            onclick="event.stopPropagation(); app.watchlist.toggle('${item.id}');">
+                                        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        },
+
         searchBrowse: (container) => {
             const popularTitles = [
                 "Emily in Paris", "Friends", "Crazy Rich Asians", "How to Lose a Guy in 10 Days",

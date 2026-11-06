@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenFlix</title>
-    <link rel="stylesheet" href="style.css?v=HERO_CLICK_DETAILS_V20">
+    <link rel="stylesheet" href="style.css?v=MY_WATCHLIST_FEATURE_V21">
     <style>
         /* Critical CSS for loading state */
         body {
@@ -66,7 +66,7 @@
                         <a href="#tv">TV Shows</a>
                         <a href="#movies">Movies</a>
                         <a href="#new">New & Popular</a>
-                        <a href="#custom">My List</a>
+                        <a href="#watchlist">My Watchlist</a>
                         <a href="#browse">Browse by Languages</a>
                     </div>
                 </div>
@@ -102,6 +102,9 @@
                                     style="width: 32px; height: 32px; border-radius: 4px;">
                                 <span style="font-size: 0.9rem;">User</span>
                             </div>
+                            <a href="#watchlist" class="dropdown-link" style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #fff; text-decoration: none; font-size: 0.85rem; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                <i data-lucide="bookmark" style="width: 16px; height: 16px; color: #E50914;"></i> My Watchlist
+                            </a>
                             <a href="#settings" class="dropdown-link"
                                 style="display: block; padding: 10px 20px; color: #ccc; text-decoration: none; font-size: 0.85rem;">Account
                                 / Settings</a>
@@ -141,9 +144,9 @@
                     <i data-lucide="search"></i>
                     <span>Search</span>
                 </a>
-                <a href="#custom" class="mobile-nav-item" data-hash="custom">
-                    <i data-lucide="plus-square"></i>
-                    <span>My List</span>
+                <a href="#watchlist" class="mobile-nav-item" data-hash="watchlist">
+                    <i data-lucide="bookmark"></i>
+                    <span>Watchlist</span>
                 </a>
             </nav>
 
@@ -161,7 +164,7 @@
                     <a onclick="app.handlers.openLegal('security')">Security & SDK Audit</a>
                     <a onclick="app.handlers.openLegal('dmca')">DMCA & Copyright</a>
                     <a onclick="app.handlers.openLegal('deletion')">Data Deletion (GDPR)</a>
-                    <a onclick="window.location.hash='custom'">My List</a>
+                    <a onclick="window.location.hash='watchlist'">My Watchlist</a>
                     <a onclick="window.location.hash='settings'">Account Settings</a>
                 </div>
                 <div class="footer-compliance-badges">
@@ -246,9 +249,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=HERO_CLICK_DETAILS_V20">
+    <link rel="stylesheet" href="patch.css?v=MY_WATCHLIST_FEATURE_V21">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=HERO_CLICK_DETAILS_V20" defer></script>
+    <script src="script.js?v=MY_WATCHLIST_FEATURE_V21" defer></script>
 </body>
 
 </html>

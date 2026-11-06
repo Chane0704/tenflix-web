@@ -1842,3 +1842,45 @@ button.close-player:hover {
     cursor: pointer !important;
     pointer-events: auto !important;
 }
+
+/* My Watchlist Page & Button Styles */
+.watchlist-container {
+    padding: 95px 4% 80px 4% !important;
+    max-width: 1600px !important;
+    margin: 0 auto !important;
+}
+
+.watchlist-remove-btn {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.78) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 25 !important;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease !important;
+}
+
+.watchlist-remove-btn:hover {
+    background: #E50914 !important;
+    border-color: #E50914 !important;
+    transform: scale(1.1) !important;
+}
+
+.btn-secondary.active {
+    background-color: #00a8e1 !important;
+    border-color: #00a8e1 !important;
+    color: #ffffff !important;
+}
+
+.btn-secondary.active:hover {
+    background-color: #008ebf !important;
+    border-color: #008ebf !important;
+}
