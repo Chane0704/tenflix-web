@@ -249,6 +249,7 @@ const app = {
             const entry = {
                 id: item.id,
                 title: item.title || item.name || 'Untitled',
+                media_type: isTv ? 'tv' : 'movie',
                 poster_path: item.poster_path || '',
                 backdrop_path: best16by9 || item.poster_path || '',
                 still_path: stillPath || '',
@@ -1265,7 +1266,7 @@ const app = {
                             }
 
                             // Check if episode ended or reached completion (> 95% progress)
-                            const isTv = currentItem.media_type === 'tv' || currentItem.name || currentItem.first_air_date || (currentItem.episodes && currentItem.episodes.length > 0);
+                            const isTv = app.services.isTvItem(currentItem);
                             const isEnded = type === 'ended' || payload.event === 'ended' || (duration > 60 && currentTime > 0 && currentTime >= duration - 8);
 
                             if (isTv && isEnded && !window._tenflixAutoplayTriggered) {
@@ -1357,6 +1358,7 @@ const app = {
         'movie_4951': '4951',
         'perks_of_being_a_wallflower': '84892',
         'movie_84892': '84892',
+        'voicemails_for_isabelle': '614945',
         'emily_in_paris': '89796',
         'friends_s1_full': '1668'
     },
@@ -1503,8 +1505,13 @@ const app = {
 
             // Ensure item is always found and tracked
             if (itemId) {
-                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || (window.currentItem && String(window.currentItem.id) === String(itemId) ? window.currentItem : null);
+                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) 
+                    || app.services.findItemById(itemId) 
+                    || (window.currentItem && String(window.currentItem.id) === String(itemId) ? window.currentItem : null)
+                    || { id: itemId };
                 window.currentPlayingItemId = itemId;
+                if (!window.appItemMap) window.appItemMap = {};
+                if (!window.appItemMap[itemId]) window.appItemMap[itemId] = window.currentPlayingItem;
             } else if (window.currentItem) {
                 window.currentPlayingItem = window.currentItem;
                 window.currentPlayingItemId = window.currentItem.id;
@@ -2009,7 +2016,9 @@ const app = {
         },
 
         switchPlayerServer: (targetServerNum) => {
-            const item = window.currentPlayingItem || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null) || window.currentItem;
+            const item = window.currentPlayingItem 
+                || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId) || { id: window.currentPlayingItemId }) : null) 
+                || window.currentItem;
             if (!item) {
                 console.warn("switchPlayerServer: No active item found");
                 return;
@@ -4184,39 +4193,41 @@ const app = {
     services: {
         isTvItem: (item, saved = null) => {
             if (!item && !saved) return false;
-            const obj = item || saved;
 
-            // 1. Explicit movie flags always override anything else
-            if (obj.media_type === 'movie' || obj.type === 'movie') return false;
-            if (item && (item.media_type === 'movie' || item.type === 'movie')) return false;
+            // 1. Explicit movie indicators on item always override
+            if (item) {
+                if (item.media_type === 'movie' || item.type === 'movie') return false;
+                if (item.isTv === false) return false;
+                if (item.release_date && !item.first_air_date && (!item.episodes || item.episodes.length === 0)) return false;
+            }
 
-            // 2. Custom series checks
-            if (obj.id === 'friends_s1_full' || obj.id === 'emily_in_paris') return true;
-            if (obj.media_type === 'tv' || obj.type === 'series' || obj.type === 'tv') return true;
-            if (item && (item.media_type === 'tv' || item.type === 'series' || item.type === 'tv')) return true;
+            // 2. Explicit TV indicators on item
+            if (item) {
+                if (item.id === 'friends_s1_full' || item.id === 'emily_in_paris') return true;
+                if (item.media_type === 'tv' || item.type === 'series' || item.type === 'tv') return true;
+                if (item.first_air_date && !item.release_date) return true;
+                if (item.episodes && Array.isArray(item.episodes) && item.episodes.length > 0) return true;
+                if (item.seasonsList && Array.isArray(item.seasonsList) && item.seasonsList.length > 0) return true;
+                if (item.isTv === true) return true;
+            }
 
-            // 3. Real episode arrays or season lists
-            if (obj.episodes && Array.isArray(obj.episodes) && obj.episodes.length > 0) return true;
-            if (item && item.episodes && Array.isArray(item.episodes) && item.episodes.length > 0) return true;
-            if (obj.seasonsList && Array.isArray(obj.seasonsList) && obj.seasonsList.length > 0) return true;
-            if (item && item.seasonsList && Array.isArray(item.seasonsList) && item.seasonsList.length > 0) return true;
+            // 3. Saved progress checks (when item is null or doesn't have explicit indicators)
+            if (saved) {
+                if (saved.media_type === 'movie' || saved.type === 'movie') return false;
+                if (saved.media_type === 'tv' || saved.type === 'series' || saved.type === 'tv') return true;
+                if (saved.id === 'friends_s1_full' || saved.id === 'emily_in_paris') return true;
+                if (typeof saved.isTv === 'boolean') {
+                    // Only override saved.isTv if item is known to be a movie with release_date
+                    const isKnownMovie = item && item.release_date && !item.first_air_date;
+                    if (!isKnownMovie) return saved.isTv;
+                }
+                if (saved.season && saved.episode) return true;
+            }
 
-            // 4. TMDB Date heuristics: movies have release_date; TV shows have first_air_date
-            const releaseDate = (item && item.release_date) || obj.release_date;
-            const firstAirDate = (item && item.first_air_date) || obj.first_air_date;
-            if (firstAirDate && !releaseDate) return true;
-            if (releaseDate && !firstAirDate) return false;
-
-            // 5. TMDB title vs name heuristics: movies have title, TV shows have name
-            const hasTitle = (item && item.title) || obj.title;
-            const hasName = (item && item.name) || obj.name;
-            if (hasTitle && !firstAirDate && (!obj.episodes || obj.episodes.length === 0)) return false;
-            if (hasName && !hasTitle && !releaseDate) return true;
-
-            // 6. Fallback to saved.isTv only if neither release_date nor title marked it as a movie
-            if (saved && typeof saved.isTv === 'boolean') {
-                if (releaseDate && !firstAirDate) return false;
-                return saved.isTv;
+            // 4. Fallback heuristics for item
+            if (item) {
+                if (item.name && !item.title) return true;
+                if (item.title && !item.name) return false;
             }
 
             return false;
