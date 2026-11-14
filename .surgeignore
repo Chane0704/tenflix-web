@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.agent/
+.netlify/
+*.json
+!manifest.json
+!initialContent.js
+fetch_*.js
+merge_*.js
+search_*.js
+inspect_*.js
+server.ps1
+DEPLOY.md
+README.md
