@@ -161,6 +161,66 @@ const app = {
             return list.find(i => String(i.id) === String(id)) || null;
         },
 
+        onImageLoad: (img) => {
+            if (!img || !img.naturalWidth || !img.naturalHeight) return;
+            const card = img.closest('.cw-card');
+            if (card) {
+                // If aspect ratio is taller than 1.35 (e.g. 2:3 vertical poster = ~0.67), treat as portrait
+                if (img.naturalWidth / img.naturalHeight < 1.35) {
+                    card.classList.add('is-portrait');
+                } else {
+                    card.classList.remove('is-portrait');
+                }
+            }
+        },
+
+        fetchEpisodeStill: async (tmdbId, season, episode, isTv = true) => {
+            if (!tmdbId) return;
+            try {
+                if (isTv) {
+                    const epData = await app.services.fetchTmdb(`/tv/${tmdbId}/season/${season}/episode/${episode}`);
+                    if (epData && epData.still_path) {
+                        const list = app.continueWatching.get();
+                        const target = list.find(i => String(i.id) === String(tmdbId));
+                        if (target) {
+                            target.still_path = epData.still_path;
+                            target.backdrop_path = epData.still_path;
+                            app.continueWatching.save(list);
+                            const card = document.querySelector(`.cw-card[data-item-id="${tmdbId}"]`);
+                            if (card) {
+                                const fullUrl = app.utils.proxyImg(`https://image.tmdb.org/t/p/w780${epData.still_path}`);
+                                const cwImg = card.querySelector('.cw-img');
+                                const cwBlur = card.querySelector('.cw-img-blur');
+                                if (cwImg) cwImg.src = fullUrl;
+                                if (cwBlur) cwBlur.src = fullUrl;
+                                card.classList.remove('is-portrait');
+                            }
+                        }
+                        return;
+                    }
+                }
+                // Fallback to show backdrop
+                const showData = await app.services.fetchTmdb(isTv ? `/tv/${tmdbId}` : `/movie/${tmdbId}`);
+                if (showData && showData.backdrop_path) {
+                    const list = app.continueWatching.get();
+                    const target = list.find(i => String(i.id) === String(tmdbId));
+                    if (target) {
+                        target.backdrop_path = showData.backdrop_path;
+                        app.continueWatching.save(list);
+                        const card = document.querySelector(`.cw-card[data-item-id="${tmdbId}"]`);
+                        if (card) {
+                            const fullUrl = app.utils.proxyImg(`https://image.tmdb.org/t/p/w780${showData.backdrop_path}`);
+                            const cwImg = card.querySelector('.cw-img');
+                            const cwBlur = card.querySelector('.cw-img-blur');
+                            if (cwImg) cwImg.src = fullUrl;
+                            if (cwBlur) cwBlur.src = fullUrl;
+                            card.classList.remove('is-portrait');
+                        }
+                    }
+                }
+            } catch(e) {}
+        },
+
         record: (item, season = 1, episode = 1, currentTime = 0, duration = 0) => {
             if (!item || !item.id) return;
             const list = app.continueWatching.get();
@@ -174,12 +234,25 @@ const app = {
                 progressPercent = list[existingIdx].progressPercent;
             }
 
+            // Look for episode still (16:9) if TV series
+            let stillPath = item.still_path || '';
+            if (!stillPath && item.episodes && item.episodes.length > 0) {
+                const epObj = item.episodes.find(ep => (ep.season || 1) == season && (ep.episode_number || 1) == episode);
+                if (epObj && (epObj.still_path || epObj.img)) {
+                    stillPath = epObj.still_path || epObj.img;
+                }
+            }
+
+            const rawBackdrop = item.backdrop_path && item.backdrop_path !== item.poster_path ? item.backdrop_path : '';
+            const best16by9 = stillPath || rawBackdrop || '';
+
             const entry = {
                 id: item.id,
                 title: item.title || item.name || 'Untitled',
                 name: item.name || item.title || 'Untitled',
                 poster_path: item.poster_path || '',
-                backdrop_path: item.backdrop_path || item.poster_path || '',
+                backdrop_path: best16by9 || item.poster_path || '',
+                still_path: stillPath || '',
                 isTv: !!isTv,
                 season: parseInt(season) || 1,
                 episode: parseInt(episode) || 1,
@@ -197,6 +270,11 @@ const app = {
 
             const sorted = list.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
             app.continueWatching.save(sorted);
+
+            // Asynchronously fetch TMDB 16:9 still/backdrop if missing
+            if (!best16by9 && item.id && !isNaN(item.id)) {
+                app.continueWatching.fetchEpisodeStill(item.id, season, episode, isTv);
+            }
         },
 
         remove: (id) => {
@@ -1417,13 +1495,29 @@ const app = {
             const item = window.currentPlayingItem;
             const isTv = item ? (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0)) : false;
 
-            // Enforce explicit season/episode for TV shows on VidLink
-            if (isTv && itemId) {
-                if (!videoUrl || videoUrl.includes('vidlink.pro') || videoUrl.trim() === '' || videoUrl === 'undefined') {
-                    videoUrl = `https://vidlink.pro/tv/${itemId}/${targetSeason}/${targetEpisode}?primaryColor=E50914&autoplay=true&nextbutton=true`;
+            // Check for direct custom episodes (Google Drive / MP4) first
+            if (item && item.episodes && item.episodes.length > 0) {
+                const epObj = item.episodes.find(ep => (ep.season || 1) == targetSeason && (ep.episode_number || 1) == targetEpisode);
+                if (epObj && epObj.video_url && (activeServer === 'drive' || activeServer === 1 || !videoUrl || !videoUrl.includes('http'))) {
+                    videoUrl = epObj.video_url;
+                    if (epObj.caption_url) captionUrl = epObj.caption_url;
                 }
-            } else if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && item && !item.is_custom) {
-                videoUrl = `https://vidlink.pro/movie/${itemId}?primaryColor=E50914&autoplay=true`;
+            } else if (item && !isTv && item.video_url && (activeServer === 'drive' || activeServer === 1 || !videoUrl || !videoUrl.includes('http'))) {
+                videoUrl = item.video_url;
+                if (item.caption_url) captionUrl = item.caption_url;
+            }
+
+            // If no direct URL or using stream servers
+            if (isTv && itemId) {
+                if (!videoUrl || videoUrl.includes('vidlink.pro') || videoUrl.includes('vidsrc') || videoUrl.includes('2embed') || videoUrl.trim() === '' || videoUrl === 'undefined') {
+                    let tmdbId = app.customTmdbMap[itemId] || itemId;
+                    if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
+                    videoUrl = app.services.getServerUrl(activeServer || 1, tmdbId, true, targetSeason, targetEpisode);
+                }
+            } else if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined' || activeServer > 1) && itemId) {
+                let tmdbId = app.customTmdbMap[itemId] || itemId;
+                if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
+                videoUrl = app.services.getServerUrl(activeServer || 1, tmdbId, false);
             }
             if (startAt && startAt > 10 && videoUrl && videoUrl.includes('vidlink.pro') && !videoUrl.includes('startAt=')) {
                 videoUrl += (videoUrl.includes('?') ? '&' : '?') + `startAt=${Math.floor(startAt)}`;
@@ -1542,12 +1636,17 @@ const app = {
                                 <i data-lucide="skip-forward"></i>
                             </button>
                         ` : ''}
-                        ${hasServer1 ? `
-                            <div class="player-server-bar">
-                                <button class="server-btn ${activeServer === 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)"><i data-lucide="cloud"></i> Server 1 (Drive)</button>
-                                <button class="server-btn ${activeServer === 2 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)"><i data-lucide="play-circle"></i> Server 2 (HD Stream)</button>
-                            </div>
-                        ` : ''}
+                        ${(() => {
+                            const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+                            return `
+                                <div class="player-server-bar">
+                                    ${hasDrive ? `<button class="server-btn ${activeServer === 'drive' || activeServer === 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer('drive')" title="Google Drive Server"><i data-lucide="cloud"></i> Drive</button>` : ''}
+                                    <button class="server-btn ${(!hasDrive && activeServer === 1) || (hasDrive && activeServer === 2) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)" title="Server 1 (VidLink)"><i data-lucide="play-circle"></i> Server 1</button>
+                                    <button class="server-btn ${(!hasDrive && activeServer === 2) || (hasDrive && activeServer === 3) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)" title="Server 2 (VidSrc)"><i data-lucide="sparkles"></i> Server 2</button>
+                                    <button class="server-btn ${(!hasDrive && activeServer === 3) || (hasDrive && activeServer === 4) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(3)" title="Server 3 (2Embed)"><i data-lucide="tv"></i> Server 3</button>
+                                </div>
+                            `;
+                        })()}
                         <button class="player-control-btn player-close-btn" onclick="app.handlers.closePlayer()" title="Close Player (Esc)">
                             <i data-lucide="x"></i>
                         </button>
@@ -1863,21 +1962,30 @@ const app = {
         },
 
         switchPlayerServer: (targetServerNum) => {
-            const item = window.currentPlayingItem;
+            const item = window.currentPlayingItem || (window.currentPlayingItemId ? app.services.findItemById(window.currentPlayingItemId) : null);
             if (!item) return;
 
-            const newServer = targetServerNum || (window.currentActiveServer === 1 ? 2 : 1);
-            window.currentActiveServer = newServer;
+            const s = window.currentSeason || 1;
+            const e = window.currentEpisode || 1;
+            window.currentActiveServer = targetServerNum;
 
-            if (newServer === 2) {
-                // Switch to VidLink HD Stream
-                const tmdbId = app.customTmdbMap[item.id] || (item.id && item.id.replace('movie_', '')) || item.id;
-                const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=false`;
-                app.router.openPlayer(streamUrl, null, item.id, null, 2);
-            } else {
-                // Switch back to original file/Drive
-                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, 1);
+            if (targetServerNum === 'drive' || (targetServerNum === 1 && item.video_url && item.video_url.includes('drive.google.com'))) {
+                let driveUrl = item.video_url;
+                if (item.episodes && item.episodes.length > 0) {
+                    const ep = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e) || item.episodes[0];
+                    if (ep && ep.video_url) driveUrl = ep.video_url;
+                }
+                app.router.openPlayer(driveUrl, null, item.id, null, 1, s, e);
+                return;
             }
+
+            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            let tmdbId = app.customTmdbMap[item.id] || item.id;
+            if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
+
+            const sNum = typeof targetServerNum === 'number' ? targetServerNum : 1;
+            const streamUrl = app.services.getServerUrl(sNum, tmdbId, isTv, s, e);
+            app.router.openPlayer(streamUrl, null, item.id, null, sNum, s, e);
         },
 
         quickPlay: (id) => {
@@ -2697,7 +2805,18 @@ const app = {
                 }
             }
 
-            app.router.openPlayer(null, null, itemId, null, 1, targetSeason, targetEpisode);
+            // Look up direct episode URL if available
+            let nextEpUrl = null;
+            let nextCaptionUrl = null;
+            if (item.episodes && item.episodes.length > 0) {
+                const epObj = item.episodes.find(e => (e.season || 1) == targetSeason && (e.episode_number || 1) == targetEpisode);
+                if (epObj && epObj.video_url) {
+                    nextEpUrl = epObj.video_url;
+                    nextCaptionUrl = epObj.caption_url;
+                }
+            }
+
+            app.router.openPlayer(nextEpUrl, nextCaptionUrl, itemId, null, window.currentActiveServer || 1, targetSeason, targetEpisode);
         },
         toggleUploadMethod: (method) => {
             const urlForm = document.getElementById('method-url');
@@ -3867,7 +3986,8 @@ const app = {
                 return `
                     <div class="cw-card" data-item-id="${cwItem.id}" onclick="app.continueWatching.resume('${cwItem.id}')" title="Click to resume ${displayTitle}">
                         <div class="cw-card-media">
-                            <img src="${imgPath}" alt="${displayTitle}" class="cw-img" loading="lazy" onerror="this.src='https://via.placeholder.com/400x225/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
+                            <img src="${imgPath}" alt="" class="cw-img-blur" aria-hidden="true" onerror="this.style.display='none';">
+                            <img src="${imgPath}" alt="${displayTitle}" class="cw-img" loading="lazy" onload="app.continueWatching.onImageLoad(this)" onerror="this.src='https://via.placeholder.com/400x225/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
                             <div class="cw-play-overlay">
                                 <div class="cw-play-icon-circle">
                                     <i data-lucide="play" fill="white"></i>
@@ -4047,6 +4167,28 @@ const app = {
                 video_url: "https://www.youtube.com/embed/b9EkMc79ZSU",
                 is_custom: false
             };
+        },
+
+        getServerUrl: (serverNum, tmdbId, isTv, season = 1, episode = 1) => {
+            const sNum = parseInt(serverNum) || 1;
+            switch (sNum) {
+                case 1: // VidLink Pro
+                    return isTv 
+                        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
+                        : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+                case 2: // VidSrc ICU
+                    return isTv
+                        ? `https://vidsrc.icu/embed/tv/${tmdbId}/${season}/${episode}`
+                        : `https://vidsrc.icu/embed/movie/${tmdbId}`;
+                case 3: // 2Embed
+                    return isTv
+                        ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
+                        : `https://www.2embed.cc/embed/${tmdbId}`;
+                default:
+                    return isTv 
+                        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
+                        : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+            }
         },
 
         fetchTmdb: async (path) => {
