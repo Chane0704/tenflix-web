@@ -3,9 +3,21 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TenFlix</title>
-    <link rel="stylesheet" href="style.css?v=VIDLINK_SERVER1_RESTORED_V28">
+    <!-- PWA Web App Manifest & Metadata -->
+    <meta name="theme-color" content="#141414">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TenFlix">
+    <meta name="application-name" content="TenFlix">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="shortcut icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="style.css?v=VIDLINK_SERVER1_RESTORED_V29">
     <style>
         /* Critical CSS for loading state */
         body {
@@ -16,6 +28,22 @@
         }
     </style>
     <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js').then(function(reg) {
+                    console.log('[TenFlix PWA] Service worker registered, scope:', reg.scope);
+                }).catch(function(err) {
+                    console.warn('[TenFlix PWA] Service worker registration failed:', err);
+                });
+            });
+        }
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            console.log('[TenFlix PWA] Captured beforeinstallprompt event');
+        });
+
         // TenFlix Strict AdShield: Block popup tabs, shady redirects, and betting ads
         (function() {
             const originalOpen = window.open;
@@ -285,9 +313,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=VIDLINK_SERVER1_RESTORED_V28">
+    <link rel="stylesheet" href="patch.css?v=VIDLINK_SERVER1_RESTORED_V29">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=VIDLINK_SERVER1_RESTORED_V28" defer></script>
+    <script src="script.js?v=VIDLINK_SERVER1_RESTORED_V29" defer></script>
 </body>
 
 </html>

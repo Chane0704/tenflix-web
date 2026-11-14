@@ -720,8 +720,7 @@ body.modal-open .prime-hover-card,
 }
 
 .server-dropdown-wrapper {
-    display: inline-flex;
-    align-items: center;
+    display: none !important;
 }
 
 .player-server-select {
@@ -772,6 +771,248 @@ body.modal-open .prime-hover-card,
     background: #e50914;
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(229, 9, 20, 0.4);
+}
+
+/* Mobile Server Trigger Pill (Compact & Native) */
+.mobile-server-pill {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: rgba(229, 9, 20, 0.22);
+    border: 1px solid rgba(229, 9, 20, 0.6);
+    color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 10px rgba(229, 9, 20, 0.3);
+}
+
+.mobile-server-pill:active {
+    transform: scale(0.96);
+    background: rgba(229, 9, 20, 0.4);
+}
+
+.mobile-server-pill i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Auto-hide Player Top Bar on Inactivity */
+.player-top-bar.faded {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(-8px);
+}
+
+/* ==========================================================
+   MOBILE SERVER BOTTOM SHEET (SLIDE UP MODAL)
+   ========================================================== */
+.player-sheet-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    z-index: 2147483647 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.player-sheet-overlay.active {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.player-sheet-container {
+    width: 100% !important;
+    max-width: 520px !important;
+    background: #16181f !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 16px 20px 28px 20px !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.9) !important;
+    transform: translateY(100%) !important;
+    transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+
+.player-sheet-overlay.active .player-sheet-container {
+    transform: translateY(0) !important;
+}
+
+.sheet-drag-handle {
+    width: 44px !important;
+    height: 4px !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 2px !important;
+    margin: 0 auto 14px auto !important;
+}
+
+.sheet-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    margin-bottom: 16px !important;
+}
+
+.sheet-title-group {
+    flex: 1 !important;
+}
+
+.sheet-title {
+    color: #ffffff !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+}
+
+.sheet-desc {
+    color: #8c92a4 !important;
+    font-size: 0.82rem !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+}
+
+.sheet-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: none !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+    margin-left: 12px !important;
+}
+
+.sheet-server-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.sheet-server-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    background: #1f222b !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    user-select: none !important;
+}
+
+.sheet-server-card:active {
+    transform: scale(0.98) !important;
+}
+
+.sheet-server-card.selected {
+    border-color: #e50914 !important;
+    background: rgba(229, 9, 20, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(229, 9, 20, 0.25) !important;
+}
+
+.sheet-server-icon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #e50914 !important;
+    flex-shrink: 0 !important;
+}
+
+.sheet-server-card.selected .sheet-server-icon {
+    background: #e50914 !important;
+    color: #ffffff !important;
+}
+
+.sheet-server-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.sheet-server-name {
+    color: #ffffff !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 2px !important;
+}
+
+.server-badge {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+}
+
+.badge-primary {
+    background: #e50914 !important;
+    color: #ffffff !important;
+}
+
+.badge-fallback {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: #dddddd !important;
+}
+
+.badge-drive {
+    background: #00875a !important;
+    color: #ffffff !important;
+}
+
+.sheet-server-status {
+    color: #8c92a4 !important;
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.sheet-server-check {
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+.check-active {
+    color: #e50914 !important;
+    width: 22px !important;
+    height: 22px !important;
+}
+
+.sheet-radio-circle {
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
 }
 
 /* ===================================================
@@ -1784,34 +2025,68 @@ button.close-player:hover {
 
     /* 7. Video Player Controls on Mobile */
     .player-top-bar {
-        height: 54px !important;
-        padding: 0 12px !important;
-        gap: 8px !important;
+        height: 56px !important;
+        padding: 0 10px !important;
+        gap: 6px !important;
     }
 
-    .player-control-btn {
-        padding: 6px 12px !important;
-        font-size: 0.82rem !important;
-        gap: 4px !important;
+    .player-top-left {
+        gap: 8px !important;
+        max-width: 48% !important;
+        min-width: 0 !important;
+    }
+
+    .player-top-right {
+        gap: 6px !important;
+        flex-shrink: 0 !important;
     }
 
     .player-back-btn {
-        padding: 6px 12px !important;
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        flex-shrink: 0 !important;
     }
 
-    .player-close-btn,
-    button.close-player {
-        width: 38px !important;
-        height: 38px !important;
+    .player-back-btn span {
+        display: none !important;
+    }
+
+    .player-title-info {
+        min-width: 0 !important;
+        overflow: hidden !important;
     }
 
     .player-main-title {
-        font-size: 0.9rem !important;
-        max-width: 125px !important;
+        font-size: 0.85rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 100% !important;
+        display: block !important;
     }
 
     .player-sub-title {
         font-size: 0.72rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+    }
+
+    .player-episodes-btn,
+    .player-next-btn {
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        flex-shrink: 0 !important;
+    }
+
+    .player-episodes-btn .btn-text,
+    .player-next-btn .btn-text {
+        display: none !important;
     }
 
     .player-episodes-drawer {
@@ -1821,17 +2096,29 @@ button.close-player:hover {
         border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
     }
 
-    .server-btn-group {
+    .player-server-bar {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .server-btn-group,
+    .server-dropdown-wrapper {
         display: none !important;
     }
 
-    .player-server-bar {
-        padding: 2px 4px !important;
+    .mobile-server-pill {
+        display: inline-flex !important;
     }
 
-    .player-server-select {
-        padding: 4px 8px !important;
-        font-size: 0.75rem !important;
+    .player-close-btn,
+    button.close-player {
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        flex-shrink: 0 !important;
     }
 
     /* 8. Search Results Grid on Mobile */
