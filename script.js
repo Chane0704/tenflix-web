@@ -221,12 +221,90 @@ const app = {
             } catch(e) {}
         },
 
+        syncFromVidLink: (mediaData) => {
+            if (!mediaData || typeof mediaData !== 'object') return;
+            const currentItem = window.currentPlayingItem 
+                || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null);
+
+            const entries = Array.isArray(mediaData) 
+                ? mediaData 
+                : (mediaData.id ? [mediaData] : Object.values(mediaData));
+
+            for (const entry of entries) {
+                if (!entry || typeof entry !== 'object') continue;
+                const entryId = entry.id || entry.tmdbId;
+                if (!entryId) continue;
+
+                let watched = 0;
+                let duration = 0;
+                let season = entry.last_season_watched ? parseInt(entry.last_season_watched) : (window.currentSeason || 1);
+                let episode = entry.last_episode_watched ? parseInt(entry.last_episode_watched) : (window.currentEpisode || 1);
+
+                if (entry.show_progress && typeof entry.show_progress === 'object') {
+                    const epKey = `s${season}e${episode}`;
+                    const epProgress = entry.show_progress[epKey] || entry.show_progress[`s0${season}e0${episode}`] || Object.values(entry.show_progress).pop();
+                    if (epProgress) {
+                        if (epProgress.season) season = parseInt(epProgress.season) || season;
+                        if (epProgress.episode) episode = parseInt(epProgress.episode) || episode;
+                        if (epProgress.progress) {
+                            watched = Number(epProgress.progress.watched ?? epProgress.progress.currentTime ?? 0);
+                            duration = Number(epProgress.progress.duration ?? 0);
+                        }
+                    }
+                }
+
+                if (!watched && entry.progress) {
+                    watched = Number(entry.progress.watched ?? entry.progress.currentTime ?? 0);
+                    duration = Number(entry.progress.duration ?? 0);
+                }
+                if (!watched) {
+                    watched = Number(entry.watched_seconds ?? entry.currentTime ?? entry.current_time ?? entry.watched ?? 0);
+                    duration = Number(entry.duration ?? entry.total_duration ?? 0);
+                }
+
+                if (watched > 0) {
+                    const isCurrent = currentItem && (String(currentItem.id) === String(entryId) || String(app.customTmdbMap[currentItem.id]) === String(entryId));
+                    if (isCurrent) {
+                        window._currentPlaybackTime = Math.floor(watched);
+                        if (duration > 0) {
+                            window._currentPlaybackDuration = Math.floor(duration);
+                        }
+                        app.continueWatching.record(currentItem, season, episode, watched, duration);
+                    } else {
+                        const matchedItem = (window.appItemMap && window.appItemMap[entryId]) || app.services.findItemById(entryId) || {
+                            id: entryId,
+                            title: entry.title || 'Untitled',
+                            poster_path: entry.poster_path || '',
+                            backdrop_path: entry.backdrop_path || '',
+                            media_type: entry.type === 'tv' ? 'tv' : 'movie'
+                        };
+                        app.continueWatching.record(matchedItem, season, episode, watched, duration);
+                    }
+                }
+            }
+        },
+
         record: (item, season = 1, episode = 1, currentTime = 0, duration = 0) => {
             if (!item || !item.id) return;
             const list = app.continueWatching.get();
             const existingIdx = list.findIndex(i => String(i.id) === String(item.id));
 
             const isTv = app.services.isTvItem(item);
+
+            // Guard against overwriting high saved progress with opening 0/few startup seconds:
+            if (existingIdx !== -1) {
+                const existing = list[existingIdx];
+                const isSameTarget = isTv 
+                    ? ((existing.season || 1) == (season || 1) && (existing.episode || 1) == (episode || 1))
+                    : true;
+                if (isSameTarget && existing.currentTime && existing.currentTime > 25 && currentTime < 15) {
+                    currentTime = existing.currentTime;
+                    if (existing.duration && (!duration || duration <= 0)) {
+                        duration = existing.duration;
+                    }
+                }
+            }
+
             let progressPercent = 1;
             if (duration && duration > 0 && currentTime > 0) {
                 progressPercent = Math.min(100, Math.max(1, Math.round((currentTime / duration) * 100)));
@@ -417,6 +495,15 @@ const app = {
 
 
     utils: {
+        escapeHtml: (str) => {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
         unfreezePage: () => {
             document.documentElement.classList.remove('player-open', 'modal-open');
             document.body.classList.remove('player-open', 'modal-open');
@@ -1321,37 +1408,64 @@ const app = {
         initMessageListener: () => {
             window.addEventListener('message', (event) => {
                 try {
-                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                    let data = event.data;
+                    if (typeof data === 'string') {
+                        try { data = JSON.parse(data); } catch(e) {}
+                    }
                     if (!data) return;
+
                     if (typeof data.volume === 'number') {
                         const normalized = data.volume > 1 ? data.volume / 100 : data.volume;
                         app.audio.setVolume(normalized);
                     }
-                    if (typeof data.muted === 'boolean') {
-                        app.audio.setMuted(data.muted);
+                    // Only record unmuting so background startup mute doesn't corrupt user audio preference
+                    if (typeof data.muted === 'boolean' && data.muted === false) {
+                        app.audio.setMuted(false);
                     }
 
-                    // VidLink & streaming progress tracking and autoplay next episode
-                    if (event.origin && event.origin.includes('vidlink.pro')) {
-                        const type = data.type || (data.event ? data.event : null);
-                        const payload = data.data || data;
+                    // 1. Official VidLink MEDIA_DATA progress synchronization
+                    if (data.type === 'MEDIA_DATA' || (data.data && data.data.type === 'MEDIA_DATA')) {
+                        const mediaData = (data.data && data.data.type === 'MEDIA_DATA') ? data.data.data : (data.data || data);
+                        try {
+                            localStorage.setItem('vidLinkProgress', JSON.stringify(mediaData));
+                        } catch (e) {}
+                        if (app.continueWatching && app.continueWatching.syncFromVidLink) {
+                            app.continueWatching.syncFromVidLink(mediaData);
+                        }
+                    }
 
-                        const currentTime = payload.currentTime || payload.watched_seconds || payload.time || 0;
-                        const duration = payload.duration || payload.total_duration || 0;
+                    // 2. Individual player events (PLAYER_EVENT, timeupdate, seeked, ended)
+                    const isVidLinkOrigin = event.origin && event.origin.includes('vidlink');
+                    const isPlayerEvent = data.type === 'PLAYER_EVENT' || data.event === 'timeupdate' || (data.data && (data.data.event || data.data.currentTime !== undefined));
+                    
+                    if (isVidLinkOrigin || isPlayerEvent) {
+                        const payload = (data && data.data && typeof data.data === 'object') ? Object.assign({}, data, data.data) : (data || {});
+                        const type = payload.event || data.event || data.type || '';
+
+                        const currentTime = Number(payload.currentTime ?? payload.current_time ?? payload.watched_seconds ?? payload.time ?? payload.position ?? 0);
+                        const duration = Number(payload.duration ?? payload.total_duration ?? payload.length ?? 0);
 
                         const currentItem = window.currentPlayingItem || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null);
 
-                        if (currentItem) {
-                            const season = window.currentSeason || 1;
-                            const episode = window.currentEpisode || 1;
+                        if (currentTime > 0) {
+                            window._currentPlaybackTime = Math.floor(currentTime);
+                            if (duration > 0) {
+                                window._currentPlaybackDuration = Math.floor(duration);
+                            }
+                        }
 
-                            if (currentTime > 5 && duration > 10) {
-                                app.continueWatching.record(currentItem, season, episode, currentTime, duration);
+                        if (currentItem) {
+                            const season = window.currentSeason || payload.season || 1;
+                            const episode = window.currentEpisode || payload.episode || 1;
+
+                            if (currentTime > 0 && (duration > 0 || window._currentPlaybackDuration > 0)) {
+                                app.continueWatching.record(currentItem, season, episode, currentTime, duration || window._currentPlaybackDuration);
                             }
 
                             // Check if episode ended or reached completion (> 95% progress)
                             const isTv = app.services.isTvItem(currentItem);
-                            const isEnded = type === 'ended' || payload.event === 'ended' || (duration > 60 && currentTime > 0 && currentTime >= duration - 8);
+                            const finalDuration = duration || window._currentPlaybackDuration || 0;
+                            const isEnded = type === 'ended' || payload.event === 'ended' || (finalDuration > 60 && currentTime > 0 && currentTime >= finalDuration - 8);
 
                             if (isTv && isEnded && !window._tenflixAutoplayTriggered) {
                                 window._tenflixAutoplayTriggered = true;
@@ -1459,6 +1573,12 @@ const app = {
         try {
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
+            try {
+                const savedVid = localStorage.getItem('vidLinkProgress');
+                if (savedVid && app.continueWatching && app.continueWatching.syncFromVidLink) {
+                    app.continueWatching.syncFromVidLink(JSON.parse(savedVid));
+                }
+            } catch (e) {}
             app.hoverCard.init();
         if (app.audio && typeof app.audio.initNavigationListeners === 'function') {
                 app.audio.initNavigationListeners();
@@ -1568,7 +1688,7 @@ const app = {
             lucide.createIcons();
         },
 
-        openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1, targetSeason = 1, targetEpisode = 1, startAt = null) => {
+        openPlayer: (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1, targetSeason = 1, targetEpisode = 1, startAt = null) => {
             if (app.hoverCard) app.hoverCard.hide();
             window.isPlayerActive = true;
             window.currentSeason = targetSeason;
@@ -1621,9 +1741,25 @@ const app = {
             if (item && item.runtime) {
                 const rt = parseInt(item.runtime);
                 if (!isNaN(rt) && rt > 0) estimatedDuration = rt * 60;
+            } else if (item && item.episode_run_time && item.episode_run_time.length > 0) {
+                const rt = parseInt(item.episode_run_time[0]);
+                if (!isNaN(rt) && rt > 0) estimatedDuration = rt * 60;
             }
             if (!estimatedDuration) {
-                estimatedDuration = isTv ? (45 * 60) : (110 * 60);
+                estimatedDuration = isTv ? (25 * 60) : (110 * 60);
+            }
+
+            // If startAt wasn't explicitly provided, check Continue Watching for saved progress
+            if ((startAt === null || startAt === undefined || startAt <= 0) && (itemId || (item && item.id))) {
+                const idToCheck = itemId || (item ? item.id : null);
+                const saved = app.continueWatching ? app.continueWatching.getItem(idToCheck) : null;
+                if (saved && saved.currentTime > 5) {
+                    const isSameEp = isTv ? ((saved.season || 1) == targetSeason && (saved.episode || 1) == targetEpisode) : true;
+                    if (isSameEp) {
+                        startAt = saved.currentTime;
+                        if (saved.duration && saved.duration > 0) estimatedDuration = saved.duration;
+                    }
+                }
             }
             window._currentPlaybackDuration = estimatedDuration;
 
@@ -1632,29 +1768,38 @@ const app = {
 
             // Clear any prior interval and start active tracking
             if (window._tenflixPlaybackInterval) {
-                clearInterval(window._tenflixPlaybackInterval);
+                try {
+                    const clearFn = typeof clearInterval !== 'undefined' ? clearInterval : (window.clearInterval ? window.clearInterval : null);
+                    if (clearFn) clearFn(window._tenflixPlaybackInterval);
+                } catch(e) {}
                 window._tenflixPlaybackInterval = null;
             }
-            window._tenflixPlaybackInterval = setInterval(() => {
-                if (!window.isPlayerActive) {
-                    clearInterval(window._tenflixPlaybackInterval);
-                    return;
-                }
-                window._currentPlaybackTime += 1;
-                // Periodic flush every 5 seconds
-                if (window._currentPlaybackTime % 5 === 0 && window.currentPlayingItem) {
-                    const isTvCurr = app.services.isTvItem(window.currentPlayingItem);
-                    const curS = isTvCurr ? (window.currentSeason || 1) : null;
-                    const curE = isTvCurr ? (window.currentEpisode || 1) : null;
-                    app.continueWatching.record(
-                        window.currentPlayingItem,
-                        curS,
-                        curE,
-                        window._currentPlaybackTime,
-                        window._currentPlaybackDuration
-                    );
-                }
-            }, 1000);
+            const setFn = typeof setInterval !== 'undefined' ? setInterval : (window.setInterval ? window.setInterval : null);
+            if (setFn) {
+                window._tenflixPlaybackInterval = setFn(() => {
+                    if (!window.isPlayerActive) {
+                        try {
+                            const cFn = typeof clearInterval !== 'undefined' ? clearInterval : (window.clearInterval ? window.clearInterval : null);
+                            if (cFn) cFn(window._tenflixPlaybackInterval);
+                        } catch(e) {}
+                        return;
+                    }
+                    window._currentPlaybackTime += 1;
+                    // Periodic flush every 5 seconds
+                    if (window._currentPlaybackTime % 5 === 0 && window.currentPlayingItem) {
+                        const isTvCurr = app.services.isTvItem(window.currentPlayingItem);
+                        const curS = isTvCurr ? (window.currentSeason || 1) : null;
+                        const curE = isTvCurr ? (window.currentEpisode || 1) : null;
+                        app.continueWatching.record(
+                            window.currentPlayingItem,
+                            curS,
+                            curE,
+                            window._currentPlaybackTime,
+                            window._currentPlaybackDuration
+                        );
+                    }
+                }, 1000);
+            }
 
             if (item) {
                 app.continueWatching.record(item, isTv ? targetSeason : null, isTv ? targetEpisode : null, initialStartAt, estimatedDuration);
@@ -1971,9 +2116,11 @@ const app = {
                 }, 3500);
             };
 
-            modal.addEventListener('mousemove', resetControlsTimer);
-            modal.addEventListener('touchstart', resetControlsTimer, { passive: true });
-            modal.addEventListener('click', resetControlsTimer);
+            if (modal && modal.addEventListener) {
+                modal.addEventListener('mousemove', resetControlsTimer);
+                modal.addEventListener('touchstart', resetControlsTimer, { passive: true });
+                modal.addEventListener('click', resetControlsTimer);
+            }
             resetControlsTimer();
 
             if (window.lucide) window.lucide.createIcons();
@@ -2984,7 +3131,10 @@ const app = {
 
         closePlayer: (shouldPopHistory = true) => {
             if (window._tenflixPlaybackInterval) {
-                clearInterval(window._tenflixPlaybackInterval);
+                try {
+                    const clearFn = typeof clearInterval !== 'undefined' ? clearInterval : (window.clearInterval ? window.clearInterval : null);
+                    if (clearFn) clearFn(window._tenflixPlaybackInterval);
+                } catch(e) {}
                 window._tenflixPlaybackInterval = null;
             }
 
@@ -4006,7 +4156,7 @@ const app = {
             }
 
             // Show search indicator
-            container.innerHTML = `<div style="padding: 100px 4%; text-align: center; color: white;"><div class="loader" style="display:inline-block; width:40px; height:40px; border:3px solid rgba(255,255,255,0.2); border-radius:50%; border-top-color:#e50914; animation:spin 0.8s linear infinite;"></div><h2 style="margin-top:15px; font-weight:500;">Searching "${currentQuery}"...</h2><style>@keyframes spin { to { transform: rotate(360deg); } }</style></div>`;
+            container.innerHTML = `<div style="padding: 100px 4%; text-align: center; color: white;"><div class="loader" style="display:inline-block; width:40px; height:40px; border:3px solid rgba(255,255,255,0.2); border-radius:50%; border-top-color:#e50914; animation:spin 0.8s linear infinite;"></div><h2 style="margin-top:15px; font-weight:500;">Searching "${app.utils.escapeHtml(currentQuery)}"...</h2><style>@keyframes spin { to { transform: rotate(360deg); } }</style></div>`;
 
             // 1. Search local hardcoded library
             const customMatches = (app.state.customContent || []).filter(i => {
@@ -4051,7 +4201,7 @@ const app = {
             });
 
             if (results.length === 0) {
-                container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${currentQuery}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
+                container.innerHTML = `<div style="padding: 100px 4%; color: white; text-align: center;"><h2>No results found for "${app.utils.escapeHtml(currentQuery)}"</h2><p style="color: #999; margin-top: 10px;">Try searching for something else.</p></div>`;
                 return;
             }
 
@@ -4090,6 +4240,8 @@ const app = {
 
                     <div class="search-query-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0 60px 0;">
                         ${results.map(item => {
+                            if (!window.appItemMap) window.appItemMap = {};
+                            window.appItemMap[item.id] = item;
                             const imgPath = item.backdrop_path || item.poster_path;
                             let fullImg = 'https://via.placeholder.com/300x169?text=No+Image';
                             if (imgPath) {
@@ -4098,7 +4250,7 @@ const app = {
                             fullImg = app.utils.proxyImg(fullImg);
 
                             return `
-                                <div onclick='app.router.openDetails(${JSON.stringify(item).replace(/'/g, "&#39;")})' 
+                                <div onclick="app.handlers.openDetailsById('${item.id}')" 
                                      style="cursor: pointer; position: relative; border-radius: 8px; overflow: hidden; transition: transform 0.2s; background: #181818; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"
                                      onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                                     <div style="position: relative;">
