@@ -702,20 +702,50 @@ body.modal-open .prime-hover-card,
    =================================================== */
 
 .player-server-bar {
-    position: fixed;
-    top: 15px;
-    right: 75px;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
     z-index: 999999;
-    display: flex;
-    gap: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: rgba(18, 21, 28, 0.92);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 24px;
-    padding: 4px;
+    padding: 4px 8px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.85);
     animation: fadeInDown 0.3s ease-out;
+}
+
+.server-dropdown-wrapper {
+    display: inline-flex;
+    align-items: center;
+}
+
+.player-server-select {
+    background: #181b22;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.player-server-select:hover,
+.player-server-select:focus {
+    border-color: #e50914;
+}
+
+.server-btn-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .server-btn {

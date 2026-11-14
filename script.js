@@ -315,7 +315,8 @@ const app = {
                 videoUrl = item.video_url;
             }
 
-            app.router.openPlayer(videoUrl, null, item.id, null, 1, s, e, startSec);
+            const activeSrv = (videoUrl && videoUrl.includes('drive.google.com')) ? 'drive' : 1;
+            app.router.openPlayer(videoUrl, null, item.id, null, activeSrv, s, e, startSec);
         }
     },
 
@@ -1503,24 +1504,30 @@ const app = {
 
             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
 
-            // Server 1 for Drive content is ALWAYS the working Google Drive file!
-            if (hasDrive && (activeServer === 1 || activeServer === 'drive' || !activeServer)) {
-                if (isTv && item.episodes && item.episodes.length > 0) {
+            // Default to 'drive' for custom Google Drive content, otherwise default to Server 1 (VidLink)
+            if (activeServer === null || activeServer === undefined) {
+                if (hasDrive && (!videoUrl || videoUrl === 'undefined' || videoUrl.includes('drive.google.com'))) {
+                    activeServer = 'drive';
+                } else {
+                    activeServer = 1;
+                }
+            }
+            window.currentActiveServer = activeServer;
+
+            if (activeServer === 'drive') {
+                if (isTv && item && item.episodes && item.episodes.length > 0) {
                     const ep = item.episodes.find(e => (e.season || 1) == targetSeason && (e.episode_number || 1) == targetEpisode) || item.episodes[0];
                     if (ep && ep.video_url) {
                         videoUrl = ep.video_url;
                         if (ep.caption_url) captionUrl = ep.caption_url;
                     }
-                } else if (item.video_url) {
+                } else if (item && item.video_url) {
                     videoUrl = item.video_url;
                     if (item.caption_url) captionUrl = item.caption_url;
                 }
             } else {
-                // Determine streaming server number
-                let streamServerNum = activeServer || 1;
-                if (hasDrive && activeServer > 1) {
-                    streamServerNum = activeServer - 1;
-                }
+                // Streaming server (1 = VidLink Primary, 2 = AutoEmbed Fallback, 3 = 2Embed Fallback)
+                const streamServerNum = parseInt(activeServer) || 1;
                 let tmdbId = item ? (app.customTmdbMap[item.id] || item.id) : itemId;
                 if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
 
@@ -1602,7 +1609,7 @@ const app = {
                                 img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
 
                                 return `
-                                    <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, 1, ${ep.season || targetSeason}, ${epNum})">
+                                    <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, window.currentActiveServer || (hasDrive ? 'drive' : 1), ${ep.season || targetSeason}, ${epNum})">
                                         <div class="drawer-ep-thumb" style="background-image: url('${img}');">
                                             ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
                                         </div>
@@ -1647,10 +1654,20 @@ const app = {
                             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
                             return `
                                 <div class="player-server-bar">
-                                    ${hasDrive ? `<button class="server-btn ${activeServer === 'drive' || activeServer === 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer('drive')" title="Google Drive Server"><i data-lucide="cloud"></i> Drive</button>` : ''}
-                                    <button class="server-btn ${(!hasDrive && activeServer === 1) || (hasDrive && activeServer === 2) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)" title="Server 1 (VidLink)"><i data-lucide="play-circle"></i> Server 1</button>
-                                    <button class="server-btn ${(!hasDrive && activeServer === 2) || (hasDrive && activeServer === 3) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)" title="Server 2 (VidSrc)"><i data-lucide="sparkles"></i> Server 2</button>
-                                    <button class="server-btn ${(!hasDrive && activeServer === 3) || (hasDrive && activeServer === 4) ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(3)" title="Server 3 (2Embed)"><i data-lucide="tv"></i> Server 3</button>
+                                    <div class="server-dropdown-wrapper">
+                                        <select id="player-server-select" class="player-server-select server-dropdown" onchange="app.handlers.switchPlayerServer(this.value)" title="Choose Streaming Server" aria-label="Select Streaming Server">
+                                            ${hasDrive ? `<option value="drive" ${activeServer == 'drive' ? 'selected' : ''}>Drive (Google Drive)</option>` : ''}
+                                            <option value="1" ${activeServer == 1 ? 'selected' : ''}>Server 1 (VidLink)</option>
+                                            <option value="2" ${activeServer == 2 ? 'selected' : ''}>Server 2 (AutoEmbed)</option>
+                                            <option value="3" ${activeServer == 3 ? 'selected' : ''}>Server 3 (2Embed)</option>
+                                        </select>
+                                    </div>
+                                    <div class="server-btn-group">
+                                        ${hasDrive ? `<button class="server-btn ${activeServer == 'drive' ? 'active' : ''}" onclick="app.handlers.switchPlayerServer('drive')" title="Google Drive Server"><i data-lucide="cloud"></i> Drive</button>` : ''}
+                                        <button class="server-btn ${activeServer == 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)" title="Server 1 (VidLink)"><i data-lucide="play-circle"></i> Server 1</button>
+                                        <button class="server-btn ${activeServer == 2 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)" title="Server 2 (AutoEmbed)"><i data-lucide="sparkles"></i> Server 2</button>
+                                        <button class="server-btn ${activeServer == 3 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(3)" title="Server 3 (2Embed)"><i data-lucide="tv"></i> Server 3</button>
+                                    </div>
                                 </div>
                             `;
                         })()}
@@ -1817,8 +1834,8 @@ const app = {
                                         <span>${(app.watchlist && app.watchlist.has(item.id)) ? 'In Watchlist' : 'Watchlist'}</span>
                                     </button>
                                     ${item.is_custom && (app.customTmdbMap[item.id] || item.id) ? `
-                                        <button class="btn btn-secondary" onclick="app.handlers.playServer2('${item.id}')" title="Play alternative HD stream if Drive is blocked">
-                                            <i data-lucide="sparkles"></i> Server 2 (HD Stream)
+                                        <button class="btn btn-secondary" onclick="app.handlers.playServer2('${item.id}')" title="Play alternative VidLink HD stream if Drive is blocked">
+                                            <i data-lucide="sparkles"></i> Server 1 (VidLink HD)
                                         </button>
                                     ` : ''}
                                     
@@ -1963,9 +1980,11 @@ const app = {
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
-            const tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
-            const streamUrl = `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=false`;
-            app.router.openPlayer(streamUrl, null, id, null, 2);
+            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            let tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
+            if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
+            const streamUrl = app.services.getServerUrl(1, tmdbId, isTv, 1, 1);
+            app.router.openPlayer(streamUrl, null, id, null, 1, 1, 1);
         },
 
         switchPlayerServer: (targetServerNum) => {
@@ -1979,29 +1998,23 @@ const app = {
             const e = window.currentEpisode || 1;
             window.currentActiveServer = targetServerNum;
 
-            const hasDrive = ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(ep => ep.video_url && ep.video_url.includes('drive.google.com'))));
-
-            if (hasDrive && targetServerNum === 1) {
+            if (targetServerNum === 'drive') {
                 let driveUrl = item.video_url;
                 if (item.episodes && item.episodes.length > 0) {
                     const ep = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e) || item.episodes[0];
                     if (ep && ep.video_url) driveUrl = ep.video_url;
                 }
-                app.router.openPlayer(driveUrl, null, item.id, null, 1, s, e);
+                app.router.openPlayer(driveUrl, null, item.id, null, 'drive', s, e);
                 return;
-            }
-
-            let streamServerIdx = targetServerNum;
-            if (hasDrive) {
-                streamServerIdx = targetServerNum - 1; // Server 2 is stream 1, Server 3 is stream 2
             }
 
             const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
             let tmdbId = app.customTmdbMap[item.id] || item.id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
 
-            const streamUrl = app.services.getServerUrl(streamServerIdx, tmdbId, isTv, s, e);
-            app.router.openPlayer(streamUrl, null, item.id, null, targetServerNum, s, e);
+            const sNum = parseInt(targetServerNum) || 1;
+            const streamUrl = app.services.getServerUrl(sNum, tmdbId, isTv, s, e);
+            app.router.openPlayer(streamUrl, null, item.id, null, sNum, s, e);
         },
 
         quickPlay: (id) => {
@@ -2014,11 +2027,14 @@ const app = {
             if (app.hoverCard) app.hoverCard.hide();
 
             if (item.episodes && item.episodes.length > 0) {
-                app.router.openPlayer(item.episodes[0].video_url, item.episodes[0].caption_url, item.id, 0);
+                const ep = item.episodes[0];
+                const isDrive = ep.video_url && ep.video_url.includes('drive.google.com');
+                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0, isDrive ? 'drive' : 1, ep.season || 1, ep.episode_number || 1);
             } else if (item.video_url) {
-                app.router.openPlayer(item.video_url, item.caption_url, item.id);
+                const isDrive = item.video_url && item.video_url.includes('drive.google.com');
+                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, isDrive ? 'drive' : 1);
             } else {
-                app.router.openPlayer(null, null, item.id);
+                app.router.openPlayer(null, null, item.id, null, 1);
             }
         },
 
@@ -2345,11 +2361,14 @@ const app = {
 
             if (hasEpisodes && item.episodes && item.episodes.length > 0) {
                 const ep = item.episodes[0];
-                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0, 1, ep.season || 1, ep.episode_number || 1);
+                const isDrive = ep.video_url && ep.video_url.includes('drive.google.com');
+                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0, isDrive ? 'drive' : 1, ep.season || 1, ep.episode_number || 1);
             } else if (item.video_url && item.video_url !== 'undefined' && item.video_url.trim() !== '') {
-                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, 1);
+                const isDrive = item.video_url && item.video_url.includes('drive.google.com');
+                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, isDrive ? 'drive' : 1);
             } else if (url && url !== 'undefined' && url.trim() !== '') {
-                app.router.openPlayer(url, null, item.id, null, 1);
+                const isDrive = url.includes('drive.google.com');
+                app.router.openPlayer(url, null, item.id, null, isDrive ? 'drive' : 1);
             } else {
                 app.router.openPlayer(null, null, item.id, null, 1);
             }
@@ -2821,7 +2840,9 @@ const app = {
                 }
             }
 
-            app.router.openPlayer(nextEpUrl, nextCaptionUrl, itemId, null, window.currentActiveServer || 1, targetSeason, targetEpisode);
+            const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+            const activeSrv = window.currentActiveServer || (hasDrive ? 'drive' : 1);
+            app.router.openPlayer(nextEpUrl, nextCaptionUrl, itemId, null, activeSrv, targetSeason, targetEpisode);
         },
         toggleUploadMethod: (method) => {
             const urlForm = document.getElementById('method-url');
@@ -4181,22 +4202,22 @@ const app = {
         getServerUrl: (serverNum, tmdbId, isTv, season = 1, episode = 1) => {
             const sNum = parseInt(serverNum) || 1;
             switch (sNum) {
-                case 1: // AutoEmbed (Fast, reliable, always working)
-                    return isTv 
-                        ? `https://autoembed.me/tv/tmdb/${tmdbId}-${season}-${episode}`
-                        : `https://autoembed.me/movie/tmdb/${tmdbId}`;
-                case 2: // 2Embed (Solid backup)
-                    return isTv
-                        ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
-                        : `https://www.2embed.cc/embed/${tmdbId}`;
-                case 3: // VidLink Pro (Modern player)
+                case 1: // VidLink Pro (Primary default with custom red spinner)
                     return isTv 
                         ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
                         : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
-                default:
+                case 2: // AutoEmbed (Secondary Fallback 1)
                     return isTv 
                         ? `https://autoembed.me/tv/tmdb/${tmdbId}-${season}-${episode}`
                         : `https://autoembed.me/movie/tmdb/${tmdbId}`;
+                case 3: // 2Embed (Secondary Fallback 2)
+                    return isTv
+                        ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
+                        : `https://www.2embed.cc/embed/${tmdbId}`;
+                default:
+                    return isTv 
+                        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
+                        : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
             }
         },
 
