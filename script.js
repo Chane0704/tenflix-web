@@ -1485,39 +1485,46 @@ const app = {
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
 
+            // Ensure item is always found and tracked
             if (itemId) {
-                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId);
+                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem;
                 window.currentPlayingItemId = itemId;
-            }
-            if (window.currentPlayingItem) {
-                app.continueWatching.record(window.currentPlayingItem, targetSeason, targetEpisode, startAt || 0, 0);
+            } else if (window.currentItem) {
+                window.currentPlayingItem = window.currentItem;
+                window.currentPlayingItemId = window.currentItem.id;
+                itemId = window.currentItem.id;
             }
             const item = window.currentPlayingItem;
             const isTv = item ? (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0)) : false;
 
-            // Check for direct custom episodes (Google Drive / MP4) first
-            if (item && item.episodes && item.episodes.length > 0) {
-                const epObj = item.episodes.find(ep => (ep.season || 1) == targetSeason && (ep.episode_number || 1) == targetEpisode);
-                if (epObj && epObj.video_url && (activeServer === 'drive' || activeServer === 1 || !videoUrl || !videoUrl.includes('http'))) {
-                    videoUrl = epObj.video_url;
-                    if (epObj.caption_url) captionUrl = epObj.caption_url;
-                }
-            } else if (item && !isTv && item.video_url && (activeServer === 'drive' || activeServer === 1 || !videoUrl || !videoUrl.includes('http'))) {
-                videoUrl = item.video_url;
-                if (item.caption_url) captionUrl = item.caption_url;
+            if (item) {
+                app.continueWatching.record(item, targetSeason, targetEpisode, startAt || 0, 0);
             }
 
-            // If no direct URL or using stream servers
-            if (isTv && itemId) {
-                if (!videoUrl || videoUrl.includes('vidlink.pro') || videoUrl.includes('vidsrc') || videoUrl.includes('2embed') || videoUrl.trim() === '' || videoUrl === 'undefined') {
-                    let tmdbId = app.customTmdbMap[itemId] || itemId;
-                    if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
-                    videoUrl = app.services.getServerUrl(activeServer || 1, tmdbId, true, targetSeason, targetEpisode);
+            const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+
+            // Server 1 for Drive content is ALWAYS the working Google Drive file!
+            if (hasDrive && (activeServer === 1 || activeServer === 'drive' || !activeServer)) {
+                if (isTv && item.episodes && item.episodes.length > 0) {
+                    const ep = item.episodes.find(e => (e.season || 1) == targetSeason && (e.episode_number || 1) == targetEpisode) || item.episodes[0];
+                    if (ep && ep.video_url) {
+                        videoUrl = ep.video_url;
+                        if (ep.caption_url) captionUrl = ep.caption_url;
+                    }
+                } else if (item.video_url) {
+                    videoUrl = item.video_url;
+                    if (item.caption_url) captionUrl = item.caption_url;
                 }
-            } else if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined' || activeServer > 1) && itemId) {
-                let tmdbId = app.customTmdbMap[itemId] || itemId;
+            } else {
+                // Determine streaming server number
+                let streamServerNum = activeServer || 1;
+                if (hasDrive && activeServer > 1) {
+                    streamServerNum = activeServer - 1;
+                }
+                let tmdbId = item ? (app.customTmdbMap[item.id] || item.id) : itemId;
                 if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
-                videoUrl = app.services.getServerUrl(activeServer || 1, tmdbId, false);
+
+                videoUrl = app.services.getServerUrl(streamServerNum, tmdbId, isTv, targetSeason, targetEpisode);
             }
             if (startAt && startAt > 10 && videoUrl && videoUrl.includes('vidlink.pro') && !videoUrl.includes('startAt=')) {
                 videoUrl += (videoUrl.includes('?') ? '&' : '?') + `startAt=${Math.floor(startAt)}`;
@@ -1962,14 +1969,19 @@ const app = {
         },
 
         switchPlayerServer: (targetServerNum) => {
-            const item = window.currentPlayingItem || (window.currentPlayingItemId ? app.services.findItemById(window.currentPlayingItemId) : null);
-            if (!item) return;
+            const item = window.currentPlayingItem || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null) || window.currentItem;
+            if (!item) {
+                console.warn("switchPlayerServer: No active item found");
+                return;
+            }
 
             const s = window.currentSeason || 1;
             const e = window.currentEpisode || 1;
             window.currentActiveServer = targetServerNum;
 
-            if (targetServerNum === 'drive' || (targetServerNum === 1 && item.video_url && item.video_url.includes('drive.google.com'))) {
+            const hasDrive = ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(ep => ep.video_url && ep.video_url.includes('drive.google.com'))));
+
+            if (hasDrive && targetServerNum === 1) {
                 let driveUrl = item.video_url;
                 if (item.episodes && item.episodes.length > 0) {
                     const ep = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e) || item.episodes[0];
@@ -1979,13 +1991,17 @@ const app = {
                 return;
             }
 
+            let streamServerIdx = targetServerNum;
+            if (hasDrive) {
+                streamServerIdx = targetServerNum - 1; // Server 2 is stream 1, Server 3 is stream 2
+            }
+
             const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
             let tmdbId = app.customTmdbMap[item.id] || item.id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
 
-            const sNum = typeof targetServerNum === 'number' ? targetServerNum : 1;
-            const streamUrl = app.services.getServerUrl(sNum, tmdbId, isTv, s, e);
-            app.router.openPlayer(streamUrl, null, item.id, null, sNum, s, e);
+            const streamUrl = app.services.getServerUrl(streamServerIdx, tmdbId, isTv, s, e);
+            app.router.openPlayer(streamUrl, null, item.id, null, targetServerNum, s, e);
         },
 
         quickPlay: (id) => {
@@ -2314,13 +2330,7 @@ const app = {
         playHero: () => {
             const item = window.currentHeroItem;
             if (item) {
-                if (item.episodes && item.episodes.length > 0) {
-                    app.router.openPlayer(item.episodes[0].video_url, item.episodes[0].caption_url);
-                } else if (item.video_url) {
-                    app.router.openPlayer(item.video_url, item.caption_url);
-                } else {
-                    app.router.openPlayer('https://www.youtube.com/embed/dQw4w9WgXcQ');
-                }
+                app.handlers.quickPlay(item.id);
             }
         },
         playMain: (url, hasEpisodes) => {
@@ -2335,18 +2345,13 @@ const app = {
 
             if (hasEpisodes && item.episodes && item.episodes.length > 0) {
                 const ep = item.episodes[0];
-                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0);
+                app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0, 1, ep.season || 1, ep.episode_number || 1);
+            } else if (item.video_url && item.video_url !== 'undefined' && item.video_url.trim() !== '') {
+                app.router.openPlayer(item.video_url, item.caption_url, item.id, null, 1);
             } else if (url && url !== 'undefined' && url.trim() !== '') {
-                app.router.openPlayer(url);
-            } else if (item.id && !item.is_custom) {
-                const isTv = item.media_type === 'tv' || item.name || item.first_air_date;
-                const streamUrl = isTv 
-                    ? `https://vidlink.pro/tv/${item.id}/1/1?primaryColor=E50914&autoplay=true&nextbutton=true`
-                    : `https://vidlink.pro/movie/${item.id}?primaryColor=E50914&autoplay=true`;
-                app.router.openPlayer(streamUrl);
+                app.router.openPlayer(url, null, item.id, null, 1);
             } else {
-                console.warn("No video URL found for this item.");
-                alert("Video not available for this title.");
+                app.router.openPlayer(null, null, item.id, null, 1);
             }
         },
         switchSeason: async (ele, itemId) => {
@@ -3846,17 +3851,21 @@ const app = {
                 });
             }
 
-            // 2. Popular Movies (Real TMDB Data: Actual real-time popular movies that people are watching globally)
+            // 2. Popular Movies (Real TMDB Data: Only movies that are released and watchable right now)
             const realPopularList = (tmdb.popularMovies && tmdb.popularMovies.length > 0)
                 ? tmdb.popularMovies
                 : (tmdb.trendingMovies && tmdb.trendingMovies.length > 0 ? tmdb.trendingMovies : []);
             const seen = new Set();
-            const uniquePopular = realPopularList.filter(m => {
-                const key = m.id || m.title;
-                if (!key || seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+            const todayStr = new Date().toISOString().split('T')[0];
+            const uniquePopular = realPopularList
+                .filter(m => !m.release_date || m.release_date <= todayStr)
+                .filter(m => m.vote_count === undefined || m.vote_count >= 10)
+                .filter(m => {
+                    const key = m.id || m.title;
+                    if (!key || seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
 
             if (uniquePopular.length > 0) {
                 app.components.createRow(document.getElementById('row-popular-movies'), "Popular Movies", uniquePopular);
@@ -4172,22 +4181,22 @@ const app = {
         getServerUrl: (serverNum, tmdbId, isTv, season = 1, episode = 1) => {
             const sNum = parseInt(serverNum) || 1;
             switch (sNum) {
-                case 1: // VidLink Pro
+                case 1: // AutoEmbed (Fast, reliable, always working)
                     return isTv 
-                        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
-                        : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
-                case 2: // VidSrc ICU
-                    return isTv
-                        ? `https://vidsrc.icu/embed/tv/${tmdbId}/${season}/${episode}`
-                        : `https://vidsrc.icu/embed/movie/${tmdbId}`;
-                case 3: // 2Embed
+                        ? `https://autoembed.me/tv/tmdb/${tmdbId}-${season}-${episode}`
+                        : `https://autoembed.me/movie/tmdb/${tmdbId}`;
+                case 2: // 2Embed (Solid backup)
                     return isTv
                         ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
                         : `https://www.2embed.cc/embed/${tmdbId}`;
-                default:
+                case 3: // VidLink Pro (Modern player)
                     return isTv 
                         ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
                         : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
+                default:
+                    return isTv 
+                        ? `https://autoembed.me/tv/tmdb/${tmdbId}-${season}-${episode}`
+                        : `https://autoembed.me/movie/tmdb/${tmdbId}`;
             }
         },
 
