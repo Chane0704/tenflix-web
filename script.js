@@ -1591,7 +1591,6 @@ const app = {
                         <iframe id="main-player-iframe" src="${iframeUrl}" 
                             frameborder="0" 
                             allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
-                            sandbox="allow-scripts allow-same-origin allow-forms"
                             allowfullscreen 
                             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
                         </iframe>
@@ -2738,7 +2737,7 @@ const app = {
                                                                                 style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
                                                                                 <i data-lucide="x" width="40" height="40"></i>
                                                                             </button>
-                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" sandbox="allow-scripts allow-same-origin allow-forms" allowfullscreen></iframe>
+                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" allowfullscreen></iframe>
                                                                             `;
                 if (window.lucide) window.lucide.createIcons();
             }
