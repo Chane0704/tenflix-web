@@ -226,7 +226,7 @@ const app = {
             const list = app.continueWatching.get();
             const existingIdx = list.findIndex(i => String(i.id) === String(item.id));
 
-            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
+            const isTv = app.services.isTvItem(item);
             let progressPercent = 20;
             if (duration && duration > 0 && currentTime > 0) {
                 progressPercent = Math.min(100, Math.max(5, Math.round((currentTime / duration) * 100)));
@@ -236,7 +236,7 @@ const app = {
 
             // Look for episode still (16:9) if TV series
             let stillPath = item.still_path || '';
-            if (!stillPath && item.episodes && item.episodes.length > 0) {
+            if (isTv && !stillPath && item.episodes && item.episodes.length > 0) {
                 const epObj = item.episodes.find(ep => (ep.season || 1) == season && (ep.episode_number || 1) == episode);
                 if (epObj && (epObj.still_path || epObj.img)) {
                     stillPath = epObj.still_path || epObj.img;
@@ -253,8 +253,8 @@ const app = {
                 backdrop_path: best16by9 || item.poster_path || '',
                 still_path: stillPath || '',
                 isTv: !!isTv,
-                season: parseInt(season) || 1,
-                episode: parseInt(episode) || 1,
+                season: isTv ? (parseInt(season) || 1) : null,
+                episode: isTv ? (parseInt(episode) || 1) : null,
                 currentTime: Math.floor(currentTime || 0),
                 duration: Math.floor(duration || 0),
                 progressPercent: progressPercent,
@@ -306,16 +306,16 @@ const app = {
 
             if (app.hoverCard) app.hoverCard.hide();
 
-            const isTv = saved ? saved.isTv : (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0));
-            const s = saved ? saved.season : 1;
-            const e = saved ? saved.episode : 1;
+            const isTv = app.services.isTvItem(item, saved);
+            const s = isTv ? (saved && saved.season ? saved.season : 1) : null;
+            const e = isTv ? (saved && saved.episode ? saved.episode : 1) : null;
             const startSec = (saved && saved.currentTime > 15) ? saved.currentTime : null;
 
             let videoUrl = null;
-            if (item.episodes && item.episodes.length > 0) {
-                const seasonEps = item.episodes.filter(ep => (ep.season || 1) == s);
-                const epObj = item.episodes.find(ep => (ep.season || 1) == s && ((ep.episode_number || 0) == e))
-                    || seasonEps[e - 1]
+            if (isTv && item.episodes && item.episodes.length > 0) {
+                const seasonEps = item.episodes.filter(ep => (ep.season || 1) == (s || 1));
+                const epObj = item.episodes.find(ep => (ep.season || 1) == (s || 1) && ((ep.episode_number || 0) == (e || 1)))
+                    || seasonEps[(e || 1) - 1]
                     || item.episodes[0];
                 if (epObj && epObj.video_url) {
                     videoUrl = epObj.video_url;
@@ -1511,10 +1511,10 @@ const app = {
                 itemId = window.currentItem.id;
             }
             const item = window.currentPlayingItem;
-            const isTv = item ? (item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))))) : false;
+            const isTv = app.services.isTvItem(item);
 
             if (item) {
-                app.continueWatching.record(item, targetSeason, targetEpisode, startAt || 0, 0);
+                app.continueWatching.record(item, isTv ? targetSeason : null, isTv ? targetEpisode : null, startAt || 0, 0);
             }
 
             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
@@ -1563,7 +1563,9 @@ const app = {
                 } else if (!videoUrl.includes('autoplay=')) {
                     videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=true';
                 }
-                if (!videoUrl.includes('nextbutton=') && isTv) {
+                if (!isTv && videoUrl.includes('nextbutton=true')) {
+                    videoUrl = videoUrl.replace(/[?&]nextbutton=true/, '');
+                } else if (!videoUrl.includes('nextbutton=') && isTv) {
                     videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'nextbutton=true';
                 }
                 if (!videoUrl.includes('primaryColor=')) {
@@ -1593,7 +1595,7 @@ const app = {
             let iframeUrl = videoUrl;
             const hasServer1 = item && item.video_url && item.video_url.includes('drive.google.com');
             const showTitle = (item && (item.title || item.name)) || 'Playing on Tenflix';
-            const subTitle = isTv ? `Season ${targetSeason} • Ep ${targetEpisode}` : '';
+            const subTitle = (isTv && targetSeason && targetEpisode) ? `Season ${targetSeason} • Ep ${targetEpisode}` : '';
 
             // Build In-Player Episodes Drawer HTML if TV series
             let drawerHtml = '';
@@ -1775,7 +1777,7 @@ const app = {
                 posterUrl = app.utils.proxyImg(posterUrl);
 
                 // TV Show Detection
-                const isTv = item.media_type === 'tv' || item.first_air_date || item.name || (item.episodes && item.episodes.length > 0);
+                const isTv = app.services.isTvItem(item);
 
                 // If TMDB TV series without loaded episodes, fetch seasons list and Season 1 episodes dynamically!
                 if (isTv && (!item.episodes || item.episodes.length === 0) && item.id && !item.is_custom) {
@@ -1806,7 +1808,7 @@ const app = {
                 }
 
                 // Episode Logic
-                const hasEpisodes = item.episodes && item.episodes.length > 0;
+                const hasEpisodes = isTv && item.episodes && item.episodes.length > 0;
                 let seasons = hasEpisodes ? [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b) : [];
                 if (item.seasonsList && item.seasonsList.length > 0) {
                     seasons = item.seasonsList.map(s => s.season_number);
@@ -1836,7 +1838,7 @@ const app = {
                                     ${(() => {
                                         const savedProgress = app.continueWatching ? app.continueWatching.getItem(item.id) : null;
                                         const playLabel = savedProgress 
-                                            ? (savedProgress.isTv ? `Resume S${savedProgress.season} E${savedProgress.episode}` : 'Resume')
+                                            ? ((savedProgress.isTv && isTv && savedProgress.season && savedProgress.episode) ? `Resume S${savedProgress.season} E${savedProgress.episode}` : 'Resume')
                                             : 'Play';
                                         return `
                                             <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})" title="${playLabel}">
@@ -1999,11 +2001,11 @@ const app = {
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
-            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
+            const isTv = app.services.isTvItem(item);
             let tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
-            const streamUrl = app.services.getServerUrl(1, tmdbId, isTv, 1, 1);
-            app.router.openPlayer(streamUrl, null, id, null, 1, 1, 1);
+            const streamUrl = app.services.getServerUrl(1, tmdbId, isTv, isTv ? 1 : null, isTv ? 1 : null);
+            app.router.openPlayer(streamUrl, null, id, null, 1, isTv ? 1 : null, isTv ? 1 : null);
         },
 
         switchPlayerServer: (targetServerNum) => {
@@ -2013,16 +2015,17 @@ const app = {
                 return;
             }
 
-            const s = window.currentSeason || 1;
-            const e = window.currentEpisode || 1;
+            const isTv = app.services.isTvItem(item);
+            const s = isTv ? (window.currentSeason || 1) : null;
+            const e = isTv ? (window.currentEpisode || 1) : null;
             window.currentActiveServer = targetServerNum;
 
             if (targetServerNum === 'drive') {
                 let driveUrl = item.video_url;
-                if (item.episodes && item.episodes.length > 0) {
-                    const seasonEps = item.episodes.filter(ep => (ep.season || 1) == s);
-                    const ep = item.episodes.find(ep => (ep.season || 1) == s && ((ep.episode_number || 0) == e))
-                        || seasonEps[e - 1]
+                if (isTv && item.episodes && item.episodes.length > 0) {
+                    const seasonEps = item.episodes.filter(ep => (ep.season || 1) == (s || 1));
+                    const ep = item.episodes.find(ep => (ep.season || 1) == (s || 1) && ((ep.episode_number || 0) == (e || 1)))
+                        || seasonEps[(e || 1) - 1]
                         || item.episodes[0];
                     if (ep && ep.video_url) driveUrl = ep.video_url;
                 }
@@ -2030,7 +2033,6 @@ const app = {
                 return;
             }
 
-            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
             let tmdbId = app.customTmdbMap[item.id] || item.id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
 
@@ -4038,10 +4040,10 @@ const app = {
                 imgPath = app.utils.proxyImg(imgPath || 'https://via.placeholder.com/400x225/181818/ffffff?text=' + encodeURIComponent(cwItem.title || 'Playing'));
 
                 const displayTitle = cwItem.title || item.title || item.name || 'Untitled';
-                const isTv = cwItem.isTv || item.media_type === 'tv' || (item.episodes && item.episodes.length > 0);
+                const isTv = app.services.isTvItem(item, cwItem);
                 const sNum = cwItem.season || 1;
                 const eNum = cwItem.episode || 1;
-                const epLabel = isTv ? `S${sNum} • Ep ${eNum}` : 'Movie';
+                const epLabel = isTv ? `S${sNum} • Ep ${eNum}` : '';
                 const progressPct = Math.min(100, Math.max(10, Math.round(cwItem.progressPercent || 25)));
 
                 return `
@@ -4057,7 +4059,7 @@ const app = {
                             <button type="button" class="cw-remove-btn" title="Remove from Continue Watching" onclick="event.stopPropagation(); app.continueWatching.remove('${cwItem.id}')">
                                 <i data-lucide="x"></i>
                             </button>
-                            <div class="cw-ep-badge">${epLabel}</div>
+                            ${epLabel ? `<div class="cw-ep-badge">${epLabel}</div>` : ''}
                         </div>
                         <div class="cw-card-body">
                             <div class="cw-title-row">
@@ -4180,6 +4182,46 @@ const app = {
     },
 
     services: {
+        isTvItem: (item, saved = null) => {
+            if (!item && !saved) return false;
+            const obj = item || saved;
+
+            // 1. Explicit movie flags always override anything else
+            if (obj.media_type === 'movie' || obj.type === 'movie') return false;
+            if (item && (item.media_type === 'movie' || item.type === 'movie')) return false;
+
+            // 2. Custom series checks
+            if (obj.id === 'friends_s1_full' || obj.id === 'emily_in_paris') return true;
+            if (obj.media_type === 'tv' || obj.type === 'series' || obj.type === 'tv') return true;
+            if (item && (item.media_type === 'tv' || item.type === 'series' || item.type === 'tv')) return true;
+
+            // 3. Real episode arrays or season lists
+            if (obj.episodes && Array.isArray(obj.episodes) && obj.episodes.length > 0) return true;
+            if (item && item.episodes && Array.isArray(item.episodes) && item.episodes.length > 0) return true;
+            if (obj.seasonsList && Array.isArray(obj.seasonsList) && obj.seasonsList.length > 0) return true;
+            if (item && item.seasonsList && Array.isArray(item.seasonsList) && item.seasonsList.length > 0) return true;
+
+            // 4. TMDB Date heuristics: movies have release_date; TV shows have first_air_date
+            const releaseDate = (item && item.release_date) || obj.release_date;
+            const firstAirDate = (item && item.first_air_date) || obj.first_air_date;
+            if (firstAirDate && !releaseDate) return true;
+            if (releaseDate && !firstAirDate) return false;
+
+            // 5. TMDB title vs name heuristics: movies have title, TV shows have name
+            const hasTitle = (item && item.title) || obj.title;
+            const hasName = (item && item.name) || obj.name;
+            if (hasTitle && !firstAirDate && (!obj.episodes || obj.episodes.length === 0)) return false;
+            if (hasName && !hasTitle && !releaseDate) return true;
+
+            // 6. Fallback to saved.isTv only if neither release_date nor title marked it as a movie
+            if (saved && typeof saved.isTv === 'boolean') {
+                if (releaseDate && !firstAirDate) return false;
+                return saved.isTv;
+            }
+
+            return false;
+        },
+
         findItemById: (id) => {
             if (window.appItemMap && window.appItemMap[id]) return window.appItemMap[id];
             // Check custom content first
