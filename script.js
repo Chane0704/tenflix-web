@@ -226,7 +226,7 @@ const app = {
             const list = app.continueWatching.get();
             const existingIdx = list.findIndex(i => String(i.id) === String(item.id));
 
-            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
             let progressPercent = 20;
             if (duration && duration > 0 && currentTime > 0) {
                 progressPercent = Math.min(100, Math.max(5, Math.round((currentTime / duration) * 100)));
@@ -249,7 +249,6 @@ const app = {
             const entry = {
                 id: item.id,
                 title: item.title || item.name || 'Untitled',
-                name: item.name || item.title || 'Untitled',
                 poster_path: item.poster_path || '',
                 backdrop_path: best16by9 || item.poster_path || '',
                 still_path: stillPath || '',
@@ -261,6 +260,9 @@ const app = {
                 progressPercent: progressPercent,
                 updatedAt: Date.now()
             };
+            if (isTv) {
+                entry.name = item.name || item.title || 'Untitled';
+            }
 
             if (existingIdx !== -1) {
                 list[existingIdx] = { ...list[existingIdx], ...entry };
@@ -297,6 +299,10 @@ const app = {
             const saved = app.continueWatching.getItem(id);
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id) || saved;
             if (!item) return;
+            if (item && item.id) {
+                window.appItemMap = window.appItemMap || {};
+                window.appItemMap[item.id] = item;
+            }
 
             if (app.hoverCard) app.hoverCard.hide();
 
@@ -307,7 +313,10 @@ const app = {
 
             let videoUrl = null;
             if (item.episodes && item.episodes.length > 0) {
-                const epObj = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e);
+                const seasonEps = item.episodes.filter(ep => (ep.season || 1) == s);
+                const epObj = item.episodes.find(ep => (ep.season || 1) == s && ((ep.episode_number || 0) == e))
+                    || seasonEps[e - 1]
+                    || item.episodes[0];
                 if (epObj && epObj.video_url) {
                     videoUrl = epObj.video_url;
                 }
@@ -1341,9 +1350,15 @@ const app = {
         'movie_1582770': '1582770',
         'movie_1291608': '1291608',
         'crazy_rich_asians': '455207',
+        'movie_455207': '455207',
         'how_to_lose_a_guy': '9919',
+        'movie_9919': '9919',
         '10_things': '4951',
-        'perks_of_being_a_wallflower': '84346'
+        'movie_4951': '4951',
+        'perks_of_being_a_wallflower': '84892',
+        'movie_84892': '84892',
+        'emily_in_paris': '89796',
+        'friends_s1_full': '1668'
     },
 
     init: async () => {
@@ -1488,7 +1503,7 @@ const app = {
 
             // Ensure item is always found and tracked
             if (itemId) {
-                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem;
+                window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || (window.currentItem && String(window.currentItem.id) === String(itemId) ? window.currentItem : null);
                 window.currentPlayingItemId = itemId;
             } else if (window.currentItem) {
                 window.currentPlayingItem = window.currentItem;
@@ -1496,17 +1511,18 @@ const app = {
                 itemId = window.currentItem.id;
             }
             const item = window.currentPlayingItem;
-            const isTv = item ? (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0)) : false;
+            const isTv = item ? (item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))))) : false;
 
             if (item) {
                 app.continueWatching.record(item, targetSeason, targetEpisode, startAt || 0, 0);
             }
 
             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+            const isDirectDriveUrl = videoUrl && videoUrl.includes('drive.google.com');
 
             // Default to 'drive' for custom Google Drive content, otherwise default to Server 1 (VidLink)
-            if (activeServer === null || activeServer === undefined) {
-                if (hasDrive && (!videoUrl || videoUrl === 'undefined' || videoUrl.includes('drive.google.com'))) {
+            if (activeServer === null || activeServer === undefined || (isDirectDriveUrl && activeServer !== 2 && activeServer !== 3)) {
+                if (hasDrive || isDirectDriveUrl) {
                     activeServer = 'drive';
                 } else {
                     activeServer = 1;
@@ -1516,7 +1532,10 @@ const app = {
 
             if (activeServer === 'drive') {
                 if (isTv && item && item.episodes && item.episodes.length > 0) {
-                    const ep = item.episodes.find(e => (e.season || 1) == targetSeason && (e.episode_number || 1) == targetEpisode) || item.episodes[0];
+                    const seasonEps = item.episodes.filter(e => (e.season || 1) == targetSeason);
+                    const ep = item.episodes.find(e => (e.season || 1) == targetSeason && ((e.episode_number || 0) == targetEpisode))
+                        || seasonEps[targetEpisode - 1]
+                        || item.episodes[0];
                     if (ep && ep.video_url) {
                         videoUrl = ep.video_url;
                         if (ep.caption_url) captionUrl = ep.caption_url;
@@ -1980,7 +1999,7 @@ const app = {
         playServer2: (id) => {
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
-            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
             let tmdbId = app.customTmdbMap[id] || (item.id && item.id.replace('movie_', '')) || id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
             const streamUrl = app.services.getServerUrl(1, tmdbId, isTv, 1, 1);
@@ -2001,14 +2020,17 @@ const app = {
             if (targetServerNum === 'drive') {
                 let driveUrl = item.video_url;
                 if (item.episodes && item.episodes.length > 0) {
-                    const ep = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e) || item.episodes[0];
+                    const seasonEps = item.episodes.filter(ep => (ep.season || 1) == s);
+                    const ep = item.episodes.find(ep => (ep.season || 1) == s && ((ep.episode_number || 0) == e))
+                        || seasonEps[e - 1]
+                        || item.episodes[0];
                     if (ep && ep.video_url) driveUrl = ep.video_url;
                 }
                 app.router.openPlayer(driveUrl, null, item.id, null, 'drive', s, e);
                 return;
             }
 
-            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            const isTv = item.isTv !== undefined ? item.isTv : (item.media_type === 'tv' || (item.media_type !== 'movie' && (item.first_air_date || (item.episodes && item.episodes.length > 0) || (item.name && !item.title))));
             let tmdbId = app.customTmdbMap[item.id] || item.id;
             if (typeof tmdbId === 'string') tmdbId = tmdbId.replace(/^(movie_|tv_)/, '');
 
@@ -2783,6 +2805,9 @@ const app = {
             const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == season);
             if (drawerCount) drawerCount.textContent = currentEpisodes.length + ' Episodes';
 
+            const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+            const activeSrv = window.currentActiveServer || (hasDrive ? 'drive' : 1);
+
             if (drawerList) {
                 drawerList.innerHTML = currentEpisodes.map((ep, idx) => {
                     const epNum = ep.episode_number || (idx + 1);
@@ -2792,7 +2817,7 @@ const app = {
                     img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
 
                     return `
-                        <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, 1, ${ep.season || season}, ${epNum})">
+                        <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, '${activeSrv}', ${ep.season || season}, ${epNum})">
                             <div class="drawer-ep-thumb" style="background-image: url('${img}');">
                                 ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
                             </div>
@@ -2817,15 +2842,19 @@ const app = {
 
             const currentSeasonEps = (item.episodes || []).filter(e => (e.season || 1) == currentSeason);
             if (currentSeasonEps.length > 0 && targetEpisode > currentSeasonEps.length) {
+                let availableSeasons = [];
                 if (item.seasonsList && item.seasonsList.length > 0) {
-                    const nextSeasonObj = item.seasonsList.find(s => s.season_number > currentSeason);
-                    if (nextSeasonObj) {
-                        targetSeason = nextSeasonObj.season_number;
-                        targetEpisode = 1;
-                    } else {
-                        alert("You've reached the last episode of the series!");
-                        return;
-                    }
+                    availableSeasons = item.seasonsList.map(s => s.season_number);
+                } else if (item.episodes && item.episodes.length > 0) {
+                    availableSeasons = [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b);
+                }
+                const nextSeason = availableSeasons.find(s => s > currentSeason);
+                if (nextSeason) {
+                    targetSeason = nextSeason;
+                    targetEpisode = 1;
+                } else {
+                    alert("You've reached the last episode of the series!");
+                    return;
                 }
             }
 
@@ -2833,7 +2862,9 @@ const app = {
             let nextEpUrl = null;
             let nextCaptionUrl = null;
             if (item.episodes && item.episodes.length > 0) {
-                const epObj = item.episodes.find(e => (e.season || 1) == targetSeason && (e.episode_number || 1) == targetEpisode);
+                const seasonEps = item.episodes.filter(e => (e.season || 1) == targetSeason);
+                const epObj = item.episodes.find(e => (e.season || 1) == targetSeason && ((e.episode_number || 0) == targetEpisode))
+                    || seasonEps[targetEpisode - 1];
                 if (epObj && epObj.video_url) {
                     nextEpUrl = epObj.video_url;
                     nextCaptionUrl = epObj.caption_url;
@@ -4128,9 +4159,11 @@ const app = {
                 imgUrl = app.utils.proxyImg(imgUrl);
                 const epId = 'ep-dur-' + item.id + '-' + index;
                 const epNum = ep.episode_number || (filteredIndex + 1);
+                const isEpDrive = (ep.video_url && ep.video_url.includes('drive.google.com')) || (item && item.video_url && item.video_url.includes('drive.google.com'));
+                const epServer = isEpDrive ? 'drive' : 1;
 
                 return `
-                    <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index}, 1, ${ep.season || season}, ${epNum})">
+                    <div class="episode-item" onclick="app.router.openPlayer('${ep.video_url || ''}', '${ep.caption_url || ''}', '${item.id || ''}', ${index}, '${epServer}', ${ep.season || season}, ${epNum})">
                         <div class="episode-number">${epNum}</div>
                         <div class="episode-thumbnail" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
                         <div class="episode-info">
