@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenFlix</title>
-    <link rel="stylesheet" href="style.css?v=MY_WATCHLIST_FEATURE_V21">
+    <link rel="stylesheet" href="style.css?v=CONTINUE_WATCHING_ADSHIELD_V22">
     <style>
         /* Critical CSS for loading state */
         body {
@@ -15,6 +15,42 @@
             font-family: sans-serif;
         }
     </style>
+    <script>
+        // TenFlix Strict AdShield: Block popup tabs, shady redirects, and betting ads
+        (function() {
+            const originalOpen = window.open;
+            window.open = function(url, target, features) {
+                // Allow legitimate Google Drive download links or same-origin navigation
+                if (url && (url.includes('drive.google.com') || url.startsWith('blob:') || url.startsWith(window.location.origin))) {
+                    return originalOpen.call(window, url, target, features);
+                }
+                console.warn('[TenFlix AdShield] Blocked popup/redirect to:', url);
+                return null;
+            };
+
+            // Guard against iframe unload/redirect attempts to hijack the main window
+            window.addEventListener('beforeunload', function(e) {
+                if (window.isPlayerActive && document.activeElement && document.activeElement.tagName === 'IFRAME') {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
+            // Block click hijackers on ad links or betting domains (1xBet, casino, popups)
+            document.addEventListener('click', function(e) {
+                const a = e.target.closest('a');
+                if (a && a.href) {
+                    const isAd = /(1x|bet|casino|pop|track|redirect|affiliate|click|bonus|promo)/i.test(a.href);
+                    if (isAd || (window.isPlayerActive && a.target === '_blank' && !a.href.includes('drive.google.com'))) {
+                        console.warn('[TenFlix AdShield] Blocked ad link:', a.href);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }
+            }, true);
+        })();
+    </script>
 </head>
 
 <body>
@@ -249,9 +285,9 @@
 
     <!-- Move Lucide here and defer everything -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link rel="stylesheet" href="patch.css?v=MY_WATCHLIST_FEATURE_V21">
+    <link rel="stylesheet" href="patch.css?v=CONTINUE_WATCHING_ADSHIELD_V22">
     <script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script>
-    <script src="script.js?v=MY_WATCHLIST_FEATURE_V21" defer></script>
+    <script src="script.js?v=CONTINUE_WATCHING_ADSHIELD_V22" defer></script>
 </body>
 
 </html>

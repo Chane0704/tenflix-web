@@ -134,6 +134,113 @@ const app = {
             if (window.lucide) lucide.createIcons({ root: btn });
         }
     },
+    continueWatching: {
+        STORAGE_KEY: 'tenflix_continue_watching',
+
+        get: () => {
+            try {
+                const data = localStorage.getItem('tenflix_continue_watching');
+                return data ? JSON.parse(data) : [];
+            } catch(e) {
+                console.error("Failed to read continue watching:", e);
+                return [];
+            }
+        },
+
+        save: (list) => {
+            try {
+                localStorage.setItem('tenflix_continue_watching', JSON.stringify(list));
+            } catch(e) {
+                console.error("Failed to save continue watching:", e);
+            }
+        },
+
+        getItem: (id) => {
+            if (!id) return null;
+            const list = app.continueWatching.get();
+            return list.find(i => String(i.id) === String(id)) || null;
+        },
+
+        record: (item, season = 1, episode = 1, currentTime = 0, duration = 0) => {
+            if (!item || !item.id) return;
+            const list = app.continueWatching.get();
+            const existingIdx = list.findIndex(i => String(i.id) === String(item.id));
+
+            const isTv = item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0);
+            let progressPercent = 20;
+            if (duration && duration > 0 && currentTime > 0) {
+                progressPercent = Math.min(100, Math.max(5, Math.round((currentTime / duration) * 100)));
+            } else if (existingIdx !== -1 && list[existingIdx].progressPercent) {
+                progressPercent = list[existingIdx].progressPercent;
+            }
+
+            const entry = {
+                id: item.id,
+                title: item.title || item.name || 'Untitled',
+                name: item.name || item.title || 'Untitled',
+                poster_path: item.poster_path || '',
+                backdrop_path: item.backdrop_path || item.poster_path || '',
+                isTv: !!isTv,
+                season: parseInt(season) || 1,
+                episode: parseInt(episode) || 1,
+                currentTime: Math.floor(currentTime || 0),
+                duration: Math.floor(duration || 0),
+                progressPercent: progressPercent,
+                updatedAt: Date.now()
+            };
+
+            if (existingIdx !== -1) {
+                list[existingIdx] = { ...list[existingIdx], ...entry };
+            } else {
+                list.unshift(entry);
+            }
+
+            const sorted = list.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
+            app.continueWatching.save(sorted);
+        },
+
+        remove: (id) => {
+            let list = app.continueWatching.get();
+            list = list.filter(i => String(i.id) !== String(id));
+            app.continueWatching.save(list);
+
+            const cwRow = document.querySelector('.continue-watching-row');
+            if (cwRow) {
+                if (list.length === 0) {
+                    cwRow.remove();
+                } else {
+                    const cardToRemove = cwRow.querySelector(`[data-item-id="${id}"]`);
+                    if (cardToRemove) cardToRemove.remove();
+                }
+            }
+        },
+
+        resume: (id) => {
+            const saved = app.continueWatching.getItem(id);
+            const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id) || saved;
+            if (!item) return;
+
+            if (app.hoverCard) app.hoverCard.hide();
+
+            const isTv = saved ? saved.isTv : (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0));
+            const s = saved ? saved.season : 1;
+            const e = saved ? saved.episode : 1;
+            const startSec = (saved && saved.currentTime > 15) ? saved.currentTime : null;
+
+            let videoUrl = null;
+            if (item.episodes && item.episodes.length > 0) {
+                const epObj = item.episodes.find(ep => (ep.season || 1) == s && (ep.episode_number || 1) == e);
+                if (epObj && epObj.video_url) {
+                    videoUrl = epObj.video_url;
+                }
+            } else if (!isTv && item.video_url) {
+                videoUrl = item.video_url;
+            }
+
+            app.router.openPlayer(videoUrl, null, item.id, null, 1, s, e, startSec);
+        }
+    },
+
 
 
     utils: {
@@ -943,9 +1050,17 @@ const app = {
                     </div>
 
                     <div class="hover-card-actions">
-                        <button class="hover-btn-play" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.quickPlay('${item.id}')">
-                            <i data-lucide="play" fill="black"></i> Play
-                        </button>
+                        ${(() => {
+                            const savedProgress = app.continueWatching ? app.continueWatching.getItem(item.id) : null;
+                            const playLabel = savedProgress 
+                                ? (savedProgress.isTv ? `Resume S${savedProgress.season} E${savedProgress.episode}` : 'Resume')
+                                : 'Play';
+                            return `
+                                <button class="hover-btn-play" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.quickPlay('${item.id}')" title="${playLabel}">
+                                    <i data-lucide="play" fill="black"></i> ${playLabel}
+                                </button>
+                            `;
+                        })()}
                         <button class="hover-btn-circle" title="More Info" onclick="event.stopPropagation(); app.hoverCard.hide(); app.handlers.openDetailsById('${item.id}')">
                             <i data-lucide="info"></i>
                         </button>
@@ -1041,6 +1156,39 @@ const app = {
                     }
                     if (typeof data.muted === 'boolean') {
                         app.audio.setMuted(data.muted);
+                    }
+
+                    // VidLink & streaming progress tracking and autoplay next episode
+                    if (event.origin && event.origin.includes('vidlink.pro')) {
+                        const type = data.type || (data.event ? data.event : null);
+                        const payload = data.data || data;
+
+                        const currentTime = payload.currentTime || payload.watched_seconds || payload.time || 0;
+                        const duration = payload.duration || payload.total_duration || 0;
+
+                        const currentItem = window.currentPlayingItem || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null);
+
+                        if (currentItem) {
+                            const season = window.currentSeason || 1;
+                            const episode = window.currentEpisode || 1;
+
+                            if (currentTime > 5 && duration > 10) {
+                                app.continueWatching.record(currentItem, season, episode, currentTime, duration);
+                            }
+
+                            // Check if episode ended or reached completion (> 95% progress)
+                            const isTv = currentItem.media_type === 'tv' || currentItem.name || currentItem.first_air_date || (currentItem.episodes && currentItem.episodes.length > 0);
+                            const isEnded = type === 'ended' || payload.event === 'ended' || (duration > 60 && currentTime > 0 && currentTime >= duration - 8);
+
+                            if (isTv && isEnded && !window._tenflixAutoplayTriggered) {
+                                window._tenflixAutoplayTriggered = true;
+                                console.log("[TenFlix Autoplay] Streaming episode ended, advancing to next episode...");
+                                setTimeout(() => {
+                                    window._tenflixAutoplayTriggered = false;
+                                    app.handlers.playNextEpisode(currentItem.id, season, episode);
+                                }, 1200);
+                            }
+                        }
                     }
                 } catch (e) {}
             });
@@ -1240,11 +1388,12 @@ const app = {
             lucide.createIcons();
         },
 
-                openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1, targetSeason = 1, targetEpisode = 1) => {
+                openPlayer: async (videoUrl, captionUrl = null, itemId = null, episodeIndex = null, activeServer = 1, targetSeason = 1, targetEpisode = 1, startAt = null) => {
             if (app.hoverCard) app.hoverCard.hide();
             window.isPlayerActive = true;
             window.currentSeason = targetSeason;
             window.currentEpisode = targetEpisode;
+            window._tenflixAutoplayTriggered = false;
 
             // Push history state so browser Back button cleanly exits player without freezing
             try {
@@ -1260,6 +1409,10 @@ const app = {
 
             if (itemId) {
                 window.currentPlayingItem = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId);
+                window.currentPlayingItemId = itemId;
+            }
+            if (window.currentPlayingItem) {
+                app.continueWatching.record(window.currentPlayingItem, targetSeason, targetEpisode, startAt || 0, 0);
             }
             const item = window.currentPlayingItem;
             const isTv = item ? (item.media_type === 'tv' || item.name || item.first_air_date || (item.episodes && item.episodes.length > 0)) : false;
@@ -1267,18 +1420,24 @@ const app = {
             // Enforce explicit season/episode for TV shows on VidLink
             if (isTv && itemId) {
                 if (!videoUrl || videoUrl.includes('vidlink.pro') || videoUrl.trim() === '' || videoUrl === 'undefined') {
-                    videoUrl = `https://vidlink.pro/tv/${itemId}/${targetSeason}/${targetEpisode}?primaryColor=E50914&autoplay=false`;
+                    videoUrl = `https://vidlink.pro/tv/${itemId}/${targetSeason}/${targetEpisode}?primaryColor=E50914&autoplay=true&nextbutton=true`;
                 }
             } else if ((!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') && itemId && item && !item.is_custom) {
-                videoUrl = `https://vidlink.pro/movie/${itemId}?primaryColor=E50914&autoplay=false`;
+                videoUrl = `https://vidlink.pro/movie/${itemId}?primaryColor=E50914&autoplay=true`;
+            }
+            if (startAt && startAt > 10 && videoUrl && videoUrl.includes('vidlink.pro') && !videoUrl.includes('startAt=')) {
+                videoUrl += (videoUrl.includes('?') ? '&' : '?') + `startAt=${Math.floor(startAt)}`;
             }
 
-            // Enforce autoplay=false and primaryColor on any VidLink URL
+            // Enforce primaryColor and autoplay=true on any VidLink URL
             if (videoUrl && videoUrl.includes('vidlink.pro')) {
-                if (videoUrl.includes('autoplay=true')) {
-                    videoUrl = videoUrl.replace(/autoplay=true/g, 'autoplay=false');
+                if (videoUrl.includes('autoplay=false')) {
+                    videoUrl = videoUrl.replace(/autoplay=false/g, 'autoplay=true');
                 } else if (!videoUrl.includes('autoplay=')) {
-                    videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=false';
+                    videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=true';
+                }
+                if (!videoUrl.includes('nextbutton=') && isTv) {
+                    videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'nextbutton=true';
                 }
                 if (!videoUrl.includes('primaryColor=')) {
                     videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'primaryColor=E50914';
@@ -1409,13 +1568,30 @@ const app = {
                     ${drawerHtml}
                 `;
                 const nativeVid = modal.querySelector('video');
-                if (nativeVid) app.audio.applyToVideo(nativeVid);
+                if (nativeVid) {
+                    app.audio.applyToVideo(nativeVid);
+                    if (startAt && startAt > 10) {
+                        nativeVid.currentTime = startAt;
+                    }
+                    nativeVid.addEventListener('timeupdate', () => {
+                        if (nativeVid.duration) {
+                            app.continueWatching.record(item, targetSeason, targetEpisode, nativeVid.currentTime, nativeVid.duration);
+                        }
+                    });
+                    nativeVid.addEventListener('ended', () => {
+                        if (isTv) {
+                            console.log("[TenFlix Autoplay] Native video ended, autoplaying next episode!");
+                            app.handlers.playNextEpisode(itemId || (item ? item.id : null), targetSeason, targetEpisode);
+                        }
+                    });
+                }
             } else {
                 modal.innerHTML = `
                     <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; overflow: hidden;">
                         <iframe id="main-player-iframe" src="${iframeUrl}" 
                             frameborder="0" 
                             allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
+                            sandbox="allow-scripts allow-same-origin allow-forms"
                             allowfullscreen 
                             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
                         </iframe>
@@ -1516,9 +1692,17 @@ const app = {
                                 </div>
                                 
                                 <div class="modal-actions" style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
-                                    <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})">
-                                        <i data-lucide="play" fill="black"></i> Play
-                                    </button>
+                                    ${(() => {
+                                        const savedProgress = app.continueWatching ? app.continueWatching.getItem(item.id) : null;
+                                        const playLabel = savedProgress 
+                                            ? (savedProgress.isTv ? `Resume S${savedProgress.season} E${savedProgress.episode}` : 'Resume')
+                                            : 'Play';
+                                        return `
+                                            <button class="btn btn-primary" onclick="app.handlers.playMain('${item.video_url || ''}', ${hasEpisodes})" title="${playLabel}">
+                                                <i data-lucide="play" fill="black"></i> ${playLabel}
+                                            </button>
+                                        `;
+                                    })()}
                                     <button class="btn btn-secondary ${(app.watchlist && app.watchlist.has(item.id)) ? 'active' : ''}" 
                                             data-watchlist-btn="${item.id}"
                                             onclick="app.watchlist.toggle('${item.id}', this)"
@@ -1698,6 +1882,10 @@ const app = {
         },
 
         quickPlay: (id) => {
+            if (app.continueWatching && app.continueWatching.getItem(id)) {
+                app.continueWatching.resume(id);
+                return;
+            }
             const item = (window.appItemMap && window.appItemMap[id]) || app.services.findItemById(id);
             if (!item) return;
             if (app.hoverCard) app.hoverCard.hide();
@@ -2031,18 +2219,23 @@ const app = {
         playMain: (url, hasEpisodes) => {
             if (app.hoverCard) app.hoverCard.hide();
             const item = window.currentItem;
-            if (hasEpisodes && item && item.episodes && item.episodes.length > 0) {
-                // Play first episode
+            if (!item) return;
+
+            if (app.continueWatching && app.continueWatching.getItem(item.id)) {
+                app.continueWatching.resume(item.id);
+                return;
+            }
+
+            if (hasEpisodes && item.episodes && item.episodes.length > 0) {
                 const ep = item.episodes[0];
                 app.router.openPlayer(ep.video_url, ep.caption_url, item.id, 0);
             } else if (url && url !== 'undefined' && url.trim() !== '') {
                 app.router.openPlayer(url);
-            } else if (item && item.id && !item.is_custom) {
-                // VidLink Embed Integration for TMDB Content
+            } else if (item.id && !item.is_custom) {
                 const isTv = item.media_type === 'tv' || item.name || item.first_air_date;
                 const streamUrl = isTv 
-                    ? `https://vidlink.pro/tv/${item.id}/1/1?primaryColor=E50914&autoplay=false`
-                    : `https://vidlink.pro/movie/${item.id}?primaryColor=E50914&autoplay=false`;
+                    ? `https://vidlink.pro/tv/${item.id}/1/1?primaryColor=E50914&autoplay=true&nextbutton=true`
+                    : `https://vidlink.pro/movie/${item.id}?primaryColor=E50914&autoplay=true`;
                 app.router.openPlayer(streamUrl);
             } else {
                 console.warn("No video URL found for this item.");
@@ -2545,7 +2738,7 @@ const app = {
                                                                                 style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
                                                                                 <i data-lucide="x" width="40" height="40"></i>
                                                                             </button>
-                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" allowfullscreen></iframe>
+                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" sandbox="allow-scripts allow-same-origin allow-forms" allowfullscreen></iframe>
                                                                             `;
                 if (window.lucide) window.lucide.createIcons();
             }
@@ -2888,6 +3081,12 @@ const app = {
                     }
                 }
             }, { passive: true });
+
+            // 0. Continue Watching Row (Prime Video / Netflix style)
+            const continueWatchingList = app.continueWatching.get();
+            if (continueWatchingList && continueWatchingList.length > 0) {
+                app.components.createContinueWatchingRow(container, 'Continue watching', continueWatchingList);
+            }
 
             // Rows - Switched order, populated with real trending & suggested content alongside custom library
             const allCustom = app.state.customContent;
@@ -3618,7 +3817,7 @@ const app = {
                                                                                                 <h1 class="hero-title">${item.title || item.name}</h1>
                                                                                                 <p class="hero-desc">${(item.overview || item.description || '').substring(0, 150)}...</p>
                                                                                                 <div class="hero-buttons">
-                                                                                                    <button class="btn btn-primary" onclick="app.router.openPlayer('${item.video_url || ''}', '${item.caption_url || ''}')"><i data-lucide="play"></i> Play</button>
+                                                                                                    <button class="btn btn-primary" onclick="app.handlers.quickPlay('${item.id}')"><i data-lucide="play"></i> Play</button>
                                                                                                     <button class="btn btn-secondary" onclick='app.router.openDetails(${JSON.stringify(item).replace(/' /g, "&#39;")})'><i data-lucide="info"></i> More Info</button>
                                                                                             </div>
                                                                                         </div>
@@ -3626,6 +3825,74 @@ const app = {
                                                                                 `;
         },
 
+        
+        createContinueWatchingRow: (container, title, items) => {
+            if (!items || items.length === 0) return;
+            const row = document.createElement('div');
+            row.className = 'row continue-watching-row';
+            row.innerHTML = `
+                <div style="display: flex; align-items: baseline; justify-content: space-between; padding-right: 4%;">
+                    <h2 class="row-title" style="margin-bottom: 14px;">${title}</h2>
+                    <span style="font-size: 0.85rem; color: #888; font-weight: 500;">Jump back in</span>
+                </div>
+                <div class="row-posters continue-watching-posters"></div>
+            `;
+            const posters = row.querySelector('.row-posters');
+            if (posters) {
+                posters.addEventListener('scroll', () => {
+                    if (app.hoverCard && app.hoverCard.onScrollOrWheel) {
+                        app.hoverCard.onScrollOrWheel();
+                    }
+                }, { passive: true });
+            }
+
+            if (!window.appItemMap) window.appItemMap = {};
+
+            posters.innerHTML = items.map((cwItem) => {
+                const item = (window.appItemMap && window.appItemMap[cwItem.id]) || app.services.findItemById(cwItem.id) || cwItem;
+                window.appItemMap[cwItem.id] = item;
+
+                let imgPath = cwItem.backdrop_path || item.backdrop_path || cwItem.poster_path || item.poster_path || '';
+                if (imgPath && !imgPath.startsWith('http')) {
+                    imgPath = `https://image.tmdb.org/t/p/w780${imgPath}`;
+                }
+                imgPath = app.utils.proxyImg(imgPath || 'https://via.placeholder.com/400x225/181818/ffffff?text=' + encodeURIComponent(cwItem.title || 'Playing'));
+
+                const displayTitle = cwItem.title || item.title || item.name || 'Untitled';
+                const isTv = cwItem.isTv || item.media_type === 'tv' || (item.episodes && item.episodes.length > 0);
+                const sNum = cwItem.season || 1;
+                const eNum = cwItem.episode || 1;
+                const epLabel = isTv ? `S${sNum} • Ep ${eNum}` : 'Movie';
+                const progressPct = Math.min(100, Math.max(10, Math.round(cwItem.progressPercent || 25)));
+
+                return `
+                    <div class="cw-card" data-item-id="${cwItem.id}" onclick="app.continueWatching.resume('${cwItem.id}')" title="Click to resume ${displayTitle}">
+                        <div class="cw-card-media">
+                            <img src="${imgPath}" alt="${displayTitle}" class="cw-img" loading="lazy" onerror="this.src='https://via.placeholder.com/400x225/181818/ffffff?text=' + encodeURIComponent('${displayTitle.replace(/'/g, "\\\'")}');">
+                            <div class="cw-play-overlay">
+                                <div class="cw-play-icon-circle">
+                                    <i data-lucide="play" fill="white"></i>
+                                </div>
+                            </div>
+                            <button type="button" class="cw-remove-btn" title="Remove from Continue Watching" onclick="event.stopPropagation(); app.continueWatching.remove('${cwItem.id}')">
+                                <i data-lucide="x"></i>
+                            </button>
+                            <div class="cw-ep-badge">${epLabel}</div>
+                        </div>
+                        <div class="cw-card-body">
+                            <div class="cw-title-row">
+                                <span class="cw-title">${displayTitle}</span>
+                            </div>
+                            <div class="cw-progress-track">
+                                <div class="cw-progress-fill" style="width: ${progressPct}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.appendChild(row);
+        },
         createRow: (container, title, items) => {
             if (!items || items.length === 0) return;
             const row = document.createElement('div');
