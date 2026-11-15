@@ -826,13 +826,46 @@ const app = {
                 searchInput.value = '';
                 hideSuggestions();
                 // Immediately restore previous/current view
-                app.router.handleHash();
+                if (window.location.hash === '#search') {
+                    window.location.hash = 'home';
+                } else {
+                    app.router.handleHash();
+                }
             });
 
-            // Force hash handling when clicking nav links to the same hash
-            document.querySelectorAll('.nav-links a, .logo').forEach(link => {
+            // Force hash handling and modal dismissal when clicking nav links or mobile bottom nav items
+            document.querySelectorAll('.nav-links a, .mobile-nav-item, .logo').forEach(link => {
                 link.addEventListener('click', (e) => {
                     const targetHash = link.getAttribute('href') || '#home';
+
+                    // Always dismiss any open modal/popup on navigation click
+                    if (app.handlers && app.handlers.closeDetails) {
+                        app.handlers.closeDetails(false);
+                    }
+                    const modalContainer = document.getElementById('modal-container');
+                    if (modalContainer) {
+                        modalContainer.classList.add('hidden');
+                        modalContainer.innerHTML = '';
+                    }
+                    const legalModal = document.getElementById('legal-modal');
+                    if (legalModal) legalModal.classList.add('hidden');
+                    if (window.isPlayerActive && app.handlers && app.handlers.closePlayer) {
+                        app.handlers.closePlayer(false);
+                    }
+                    const episodesDrawer = document.getElementById('player-episodes-drawer');
+                    if (episodesDrawer) episodesDrawer.classList.add('hidden');
+                    const episodesOverlay = document.getElementById('player-episodes-overlay');
+                    if (episodesOverlay) episodesOverlay.classList.add('hidden');
+                    const serverSheet = document.getElementById('player-server-sheet-overlay');
+                    if (serverSheet) serverSheet.classList.add('hidden');
+                    app.utils.unfreezePage();
+                    if (app.hoverCard) app.hoverCard.hide();
+
+                    if (targetHash === '#search') {
+                        // Handled by openSearch
+                        return;
+                    }
+
                     const currentHash = window.location.hash || '#home';
                     if (currentHash === targetHash) {
                         // Already on this hash, hashchange won't fire. Force a re-render.
@@ -1616,12 +1649,10 @@ const app = {
             }
             window.scrollTo(0, 0);
 
-            // Clear search input on navigation
+            // Clear search input on navigation away from search
             const searchInput = document.getElementById('search-input');
-            if (searchInput && searchInput.value) {
+            if (searchInput && searchInput.value && hash !== 'search') {
                 searchInput.value = '';
-                // Optional: remove active class to collapse it if desired
-                // searchInput.classList.remove('active');
             }
 
             // Update Active Link
@@ -1632,7 +1663,9 @@ const app = {
 
             document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 item.classList.remove('active');
-                if (item.getAttribute('href') === '#' + hash) item.classList.add('active');
+                if (item.getAttribute('href') === '#' + hash || (hash === 'search' && (item.getAttribute('data-hash') === 'search' || item.getAttribute('href') === '#search'))) {
+                    item.classList.add('active');
+                }
             });
 
             // Cleanly collapse search bar on navigating to any other view
@@ -1645,7 +1678,11 @@ const app = {
             if (hash === 'home') app.pages.home(main);
             else if (hash === 'search') {
                 app.handlers.openSearch();
-                app.pages.searchBrowse(main);
+                if (searchInput && searchInput.value && searchInput.value.trim().length > 0) {
+                    app.pages.search(main, searchInput.value.trim());
+                } else {
+                    app.pages.searchBrowse(main);
+                }
             }
             else if (hash === 'tv') app.pages.tv(main);
             else if (hash === 'movies') app.pages.movies(main);
@@ -2338,29 +2375,79 @@ const app = {
                 e.preventDefault();
                 e.stopPropagation();
             }
+
+            // 1. Force dismiss all popups, modals, player and drawers immediately
+            if (app.handlers && app.handlers.closeDetails) {
+                app.handlers.closeDetails(false);
+            }
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer) {
+                modalContainer.classList.add('hidden');
+                modalContainer.innerHTML = '';
+            }
+            const legalModal = document.getElementById('legal-modal');
+            if (legalModal) legalModal.classList.add('hidden');
+
+            const playerModal = document.getElementById('player-container');
+            if (playerModal && !playerModal.classList.contains('hidden')) {
+                if (app.handlers && app.handlers.closePlayer) {
+                    app.handlers.closePlayer(false);
+                } else {
+                    playerModal.classList.add('hidden');
+                    playerModal.innerHTML = '';
+                }
+            }
+            const episodesDrawer = document.getElementById('player-episodes-drawer');
+            if (episodesDrawer) episodesDrawer.classList.add('hidden');
+            const episodesOverlay = document.getElementById('player-episodes-overlay');
+            if (episodesOverlay) episodesOverlay.classList.add('hidden');
+            const serverSheet = document.getElementById('player-server-sheet-overlay');
+            if (serverSheet) serverSheet.classList.add('hidden');
+
+            app.utils.unfreezePage();
+            if (app.hoverCard) app.hoverCard.hide();
+
+            // 2. Sync URL hash to #search
+            if (window.location.hash !== '#search') {
+                try {
+                    window.location.hash = 'search';
+                } catch (err) {}
+            }
+
+            // 3. Highlight Search as active in desktop & mobile nav
+            document.querySelectorAll('.nav-links a').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#search') link.classList.add('active');
+            });
+            document.querySelectorAll('.mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-hash') === 'search' || item.getAttribute('href') === '#search') {
+                    item.classList.add('active');
+                }
+            });
+
+            // 4. Activate search box and input
             const searchBox = document.querySelector('.search-box');
             const searchInput = document.getElementById('search-input');
             const searchCloseBtn = document.querySelector('.search-close-btn');
-            if (!searchBox || !searchInput) return;
-
-            // If already open and user has entered text, trigger search
-            if (searchBox.classList.contains('active') && searchInput.value && searchInput.value.trim().length > 0) {
-                const main = document.getElementById('main-content');
-                if (main) app.pages.search(main, searchInput.value.trim());
-                return;
+            if (searchBox) searchBox.classList.add('active');
+            if (searchInput) {
+                searchInput.classList.add('active');
+                setTimeout(() => {
+                    try {
+                        searchInput.focus();
+                    } catch (err) {}
+                }, 80);
             }
-
-            searchBox.classList.add('active');
-            searchInput.classList.add('active');
             if (searchCloseBtn) searchCloseBtn.classList.remove('hidden');
 
-            setTimeout(() => {
-                searchInput.focus();
-            }, 60);
-
+            // 5. Scroll to top and render search view
+            window.scrollTo(0, 0);
             const main = document.getElementById('main-content');
-            if (main && (!searchInput.value || searchInput.value.trim().length === 0)) {
-                if (typeof app.pages.searchBrowse === 'function') {
+            if (main) {
+                if (searchInput && searchInput.value && searchInput.value.trim().length > 0) {
+                    app.pages.search(main, searchInput.value.trim());
+                } else if (typeof app.pages.searchBrowse === 'function') {
                     app.pages.searchBrowse(main);
                 }
             }
@@ -3140,7 +3227,10 @@ const app = {
 
         closeDetails: (shouldPopHistory = true) => {
             const modal = document.getElementById('modal-container');
-            if (modal) modal.classList.add('hidden');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.innerHTML = '';
+            }
             app.utils.unfreezePage();
             if (app.hoverCard) app.hoverCard.hide();
             if (shouldPopHistory && history.state && history.state.tenflixModal) {
