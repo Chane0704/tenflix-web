@@ -1218,6 +1218,25 @@ button.close-player:hover {
 }
 
 /* In-Player Episodes Drawer */
+.player-episodes-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 2147483646 !important;
+    transition: opacity 0.25s ease !important;
+}
+
+.player-episodes-overlay.hidden {
+    display: none !important;
+    opacity: 0 !important;
+}
+
+@keyframes epSpin {
+    to { transform: rotate(360deg); }
+}
+
 .player-episodes-drawer {
     position: fixed !important;
     top: 0 !important;
@@ -2076,6 +2095,7 @@ button.close-player:hover {
     }
 
     .player-episodes-btn,
+    .player-prev-btn,
     .player-next-btn {
         width: 36px !important;
         height: 36px !important;
@@ -2085,6 +2105,7 @@ button.close-player:hover {
     }
 
     .player-episodes-btn .btn-text,
+    .player-prev-btn .btn-text,
     .player-next-btn .btn-text {
         display: none !important;
     }

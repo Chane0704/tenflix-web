@@ -1425,6 +1425,16 @@ const app = {
         initNavigationListeners: () => {
             // Handle browser Back / Forward buttons without ever freezing the UI
             window.addEventListener('popstate', (e) => {
+                const drawer = document.getElementById('player-episodes-drawer');
+                if (drawer && !drawer.classList.contains('hidden')) {
+                    app.handlers.toggleEpisodesDrawer();
+                    return;
+                }
+                const serverSheet = document.getElementById('player-server-sheet-overlay');
+                if (serverSheet && !serverSheet.classList.contains('hidden')) {
+                    app.handlers.closeServerSheet();
+                    return;
+                }
                 if (window.isPlayerActive) {
                     app.handlers.closePlayer(false);
                 }
@@ -1447,9 +1457,19 @@ const app = {
                 app.utils.unfreezePage();
             });
 
-            // Handle Escape key (closes player, modals, and search bar)
+            // Handle Escape key (closes episodes drawer, server sheet, player, modals, and search bar)
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
+                    const drawer = document.getElementById('player-episodes-drawer');
+                    if (drawer && !drawer.classList.contains('hidden')) {
+                        app.handlers.toggleEpisodesDrawer();
+                        return;
+                    }
+                    const serverSheet = document.getElementById('player-server-sheet-overlay');
+                    if (serverSheet && !serverSheet.classList.contains('hidden')) {
+                        app.handlers.closeServerSheet();
+                        return;
+                    }
                     if (window.isPlayerActive) {
                         app.handlers.closePlayer();
                     } else {
@@ -1683,6 +1703,13 @@ const app = {
                 }).catch(() => {});
             }
 
+            // Background preload seasons list & episode details for TV series drawer
+            if (isTv && item && (itemId || item.id)) {
+                if (app.services && app.services.ensureTvEpisodesLoaded) {
+                    app.services.ensureTvEpisodesLoaded(item, itemId || item.id, targetSeason);
+                }
+            }
+
             // Estimate duration and initialize playback timer
             let estimatedDuration = 0;
             if (item && item.runtime) {
@@ -1847,20 +1874,26 @@ const app = {
                 const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == targetSeason);
 
                 drawerHtml = `
+                    <div id="player-episodes-overlay" class="player-episodes-overlay hidden" onclick="app.handlers.toggleEpisodesDrawer()"></div>
                     <div id="player-episodes-drawer" class="player-episodes-drawer hidden">
                         <div class="episodes-drawer-header">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <select class="episodes-drawer-select" onchange="app.handlers.switchDrawerSeason(this, '${item.id}')">
                                     ${seasons.map(s => `<option value="${s}" ${s == targetSeason ? 'selected' : ''}>Season ${s}</option>`).join('')}
                                 </select>
-                                <span id="drawer-ep-count" style="color:#aaa; font-size:0.85rem;">${currentEpisodes.length} Episodes</span>
+                                <span id="drawer-ep-count" style="color:#aaa; font-size:0.85rem;">${currentEpisodes.length ? currentEpisodes.length + ' Episodes' : 'Loading...'}</span>
                             </div>
                             <button class="player-control-btn player-close-btn" onclick="app.handlers.toggleEpisodesDrawer()" style="width:36px; height:36px;" title="Close Episodes Drawer">
                                 <i data-lucide="x" style="width:18px; height:18px;"></i>
                             </button>
                         </div>
                         <div class="episodes-drawer-list" id="drawer-ep-list">
-                            ${currentEpisodes.map((ep, idx) => {
+                            ${currentEpisodes.length === 0 ? `
+                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; color:#aaa; gap:12px; text-align:center;">
+                                    <div class="episodes-spinner" style="width:28px; height:28px; border:3px solid rgba(255,255,255,0.2); border-top-color:#E50914; border-radius:50%; animation:epSpin 0.8s linear infinite;"></div>
+                                    <span style="font-size:0.9rem;">Loading Season ${targetSeason} Episodes...</span>
+                                </div>
+                            ` : currentEpisodes.map((ep, idx) => {
                                 const epNum = ep.episode_number || (idx + 1);
                                 const isPlaying = (ep.season || 1) == targetSeason && epNum == targetEpisode;
                                 let img = ep.still_path || ep.img || '';
@@ -1894,7 +1927,7 @@ const app = {
             const topBarHtml = `
                 <div class="player-top-bar" id="player-top-bar">
                     <div class="player-top-left">
-                        <button class="player-control-btn player-back-btn" onclick="app.handlers.closePlayer()" title="Back to Tenflix">
+                        <button class="player-control-btn player-back-btn" onclick="app.handlers.handlePlayerBack()" title="Back">
                             <i data-lucide="arrow-left"></i>
                             <span>Back</span>
                         </button>
@@ -1909,6 +1942,12 @@ const app = {
                                 <i data-lucide="layers"></i>
                                 <span class="btn-text">Episodes</span>
                             </button>
+                            ${(targetEpisode > 1 || (targetSeason && targetSeason > 1)) ? `
+                                <button class="player-control-btn player-prev-btn" onclick="app.handlers.playPreviousEpisode('${item ? item.id : itemId}', ${targetSeason}, ${targetEpisode})" title="Previous Episode">
+                                    <i data-lucide="skip-back"></i>
+                                    <span class="btn-text">Prev</span>
+                                </button>
+                            ` : ''}
                             <button class="player-control-btn player-next-btn" onclick="app.handlers.playNextEpisode('${item ? item.id : itemId}', ${targetSeason}, ${targetEpisode})" title="Next Episode">
                                 <span class="btn-text">Next</span>
                                 <i data-lucide="skip-forward"></i>
@@ -3179,11 +3218,123 @@ const app = {
             }
         },
 
+        handlePlayerBack: () => {
+            const drawer = document.getElementById('player-episodes-drawer');
+            if (drawer && !drawer.classList.contains('hidden')) {
+                app.handlers.toggleEpisodesDrawer();
+                return;
+            }
+            app.handlers.closePlayer();
+        },
+
         toggleEpisodesDrawer: () => {
             const drawer = document.getElementById('player-episodes-drawer');
             if (!drawer) return;
+            const willOpen = drawer.classList.contains('hidden');
             drawer.classList.toggle('hidden');
+
+            const overlay = document.getElementById('player-episodes-overlay');
+            if (overlay) {
+                if (willOpen) overlay.classList.remove('hidden');
+                else overlay.classList.add('hidden');
+            }
+
+            if (willOpen) {
+                const item = window.currentPlayingItem;
+                const season = window.currentSeason || 1;
+                if (item) {
+                    const hasSeasonEps = item.episodes && item.episodes.some(e => (e.season || 1) == season);
+                    if (!hasSeasonEps && !item.is_custom) {
+                        if (app.services && app.services.ensureTvEpisodesLoaded) {
+                            app.services.ensureTvEpisodesLoaded(item, item.id || window.currentPlayingItemId, season);
+                        }
+                    } else {
+                        app.handlers.refreshDrawerContent(item, season);
+                    }
+                }
+            }
+
             if (window.lucide) window.lucide.createIcons();
+        },
+
+        refreshDrawerContent: (item, targetSeason) => {
+            const drawer = document.getElementById('player-episodes-drawer');
+            if (!drawer || !item) return;
+
+            const selectEle = drawer.querySelector('.episodes-drawer-select');
+            const countEle = drawer.querySelector('#drawer-ep-count');
+            const listEle = drawer.querySelector('#drawer-ep-list');
+
+            // 1. Update seasons select options
+            if (selectEle) {
+                let seasons = (item.seasonsList && item.seasonsList.length > 0)
+                    ? item.seasonsList.map(s => s.season_number)
+                    : ((item.episodes && item.episodes.length > 0)
+                        ? [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b)
+                        : [targetSeason || 1]);
+
+                if (!seasons.includes(targetSeason)) {
+                    seasons.push(targetSeason);
+                    seasons.sort((a, b) => a - b);
+                }
+
+                selectEle.innerHTML = seasons.map(s => `<option value="${s}" ${s == targetSeason ? 'selected' : ''}>Season ${s}</option>`).join('');
+            }
+
+            // 2. Filter episodes for current targetSeason
+            const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == targetSeason);
+
+            // 3. Update episode count
+            if (countEle) {
+                countEle.textContent = `${currentEpisodes.length} Episodes`;
+            }
+
+            // 4. Update episode list
+            if (listEle) {
+                if (currentEpisodes.length === 0) {
+                    listEle.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; color:#aaa; gap:12px; text-align:center;">
+                            <div class="episodes-spinner" style="width:28px; height:28px; border:3px solid rgba(255,255,255,0.2); border-top-color:#E50914; border-radius:50%; animation:epSpin 0.8s linear infinite;"></div>
+                            <span style="font-size:0.9rem;">Loading Season ${targetSeason} Episodes...</span>
+                        </div>
+                    `;
+                } else {
+                    const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
+                    const activeSrv = window.currentActiveServer || (hasDrive ? 'drive' : 1);
+                    const playingSeason = window.currentSeason || targetSeason;
+                    const playingEpisode = window.currentEpisode || 1;
+
+                    listEle.innerHTML = currentEpisodes.map((ep, idx) => {
+                        const epNum = ep.episode_number || (idx + 1);
+                        const isPlaying = (ep.season || 1) == playingSeason && epNum == playingEpisode;
+                        let img = ep.still_path || ep.img || '';
+                        if (img && !img.startsWith('http')) img = 'https://image.tmdb.org/t/p/w300' + img;
+                        img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
+
+                        return `
+                            <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, '${activeSrv}', ${ep.season || targetSeason}, ${epNum})">
+                                <div class="drawer-ep-thumb" style="background-image: url('${img}');">
+                                    ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
+                                </div>
+                                <div class="drawer-ep-info">
+                                    <div class="drawer-ep-title">${ep.title || 'Episode ' + epNum}</div>
+                                    <div class="drawer-ep-meta">${ep.runtime ? ep.runtime + 'm' : ''}</div>
+                                    <div class="drawer-ep-desc">${ep.overview ? ep.overview.substring(0, 80) + '...' : ''}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    if (window.lucide) window.lucide.createIcons();
+
+                    const playingCard = listEle.querySelector('.drawer-episode-item.playing');
+                    if (playingCard) {
+                        setTimeout(() => {
+                            try { playingCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch(e) {}
+                        }, 100);
+                    }
+                }
+            }
         },
 
         switchDrawerSeason: async (selectEle, itemId) => {
@@ -3197,7 +3348,12 @@ const app = {
             const hasSeasonLoaded = item.episodes && item.episodes.some(e => (e.season || 1) == season);
             if (!hasSeasonLoaded && !item.is_custom && itemId) {
                 if (drawerList) {
-                    drawerList.innerHTML = '<div style="padding:30px; text-align:center; color:#888;">Loading Season ' + season + '...</div>';
+                    drawerList.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; color:#aaa; gap:12px; text-align:center;">
+                            <div class="episodes-spinner" style="width:28px; height:28px; border:3px solid rgba(255,255,255,0.2); border-top-color:#E50914; border-radius:50%; animation:epSpin 0.8s linear infinite;"></div>
+                            <span style="font-size:0.9rem;">Loading Season ${season}...</span>
+                        </div>
+                    `;
                 }
                 try {
                     const seasonData = await app.services.fetchTmdb('/tv/' + itemId + '/season/' + season);
@@ -3218,35 +3374,49 @@ const app = {
                 }
             }
 
-            const currentEpisodes = (item.episodes || []).filter(e => (e.season || 1) == season);
-            if (drawerCount) drawerCount.textContent = currentEpisodes.length + ' Episodes';
+            app.handlers.refreshDrawerContent(item, season);
+        },
+
+        playPreviousEpisode: (itemId, currentSeason, currentEpisode) => {
+            const item = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem || window.currentPlayingItem;
+            if (!item) return;
+
+            let targetSeason = currentSeason;
+            let targetEpisode = currentEpisode - 1;
+
+            if (targetEpisode < 1) {
+                let availableSeasons = [];
+                if (item.seasonsList && item.seasonsList.length > 0) {
+                    availableSeasons = item.seasonsList.map(s => s.season_number);
+                } else if (item.episodes && item.episodes.length > 0) {
+                    availableSeasons = [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b);
+                }
+                const prevSeasons = availableSeasons.filter(s => s < currentSeason).sort((a, b) => b - a);
+                if (prevSeasons.length > 0) {
+                    targetSeason = prevSeasons[0];
+                    const prevSeasonEps = (item.episodes || []).filter(e => (e.season || 1) == targetSeason);
+                    targetEpisode = prevSeasonEps.length > 0 ? prevSeasonEps.length : 1;
+                } else {
+                    return; // Already at S1 E1
+                }
+            }
+
+            // Look up direct episode URL if available
+            let prevEpUrl = null;
+            let prevCaptionUrl = null;
+            if (item.episodes && item.episodes.length > 0) {
+                const seasonEps = item.episodes.filter(e => (e.season || 1) == targetSeason);
+                const epObj = item.episodes.find(e => (e.season || 1) == targetSeason && ((e.episode_number || 0) == targetEpisode))
+                    || seasonEps[targetEpisode - 1];
+                if (epObj && epObj.video_url) {
+                    prevEpUrl = epObj.video_url;
+                    prevCaptionUrl = epObj.caption_url;
+                }
+            }
 
             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
             const activeSrv = window.currentActiveServer || (hasDrive ? 'drive' : 1);
-
-            if (drawerList) {
-                drawerList.innerHTML = currentEpisodes.map((ep, idx) => {
-                    const epNum = ep.episode_number || (idx + 1);
-                    const isPlaying = (ep.season || 1) == (window.currentSeason || 1) && epNum == (window.currentEpisode || 1);
-                    let img = ep.still_path || ep.img || '';
-                    if (img && !img.startsWith('http')) img = 'https://image.tmdb.org/t/p/w300' + img;
-                    img = app.utils.proxyImg(img || 'https://via.placeholder.com/200x110?text=Episode');
-
-                    return `
-                        <div class="drawer-episode-item ${isPlaying ? 'playing' : ''}" onclick="app.router.openPlayer(null, null, '${item.id}', null, '${activeSrv}', ${ep.season || season}, ${epNum})">
-                            <div class="drawer-ep-thumb" style="background-image: url('${img}');">
-                                ${isPlaying ? '<div class="playing-badge"><i data-lucide="play" fill="white"></i></div>' : ''}
-                            </div>
-                            <div class="drawer-ep-info">
-                                <div class="drawer-ep-title">${ep.title || 'Episode ' + epNum}</div>
-                                <div class="drawer-ep-meta">${ep.runtime ? ep.runtime + 'm' : ''}</div>
-                                <div class="drawer-ep-desc">${ep.overview ? ep.overview.substring(0, 80) + '...' : ''}</div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                if (window.lucide) window.lucide.createIcons();
-            }
+            app.router.openPlayer(prevEpUrl, prevCaptionUrl, itemId, null, activeSrv, targetSeason, targetEpisode);
         },
 
         playNextEpisode: (itemId, currentSeason, currentEpisode) => {
@@ -4687,6 +4857,56 @@ const app = {
                 console.warn("Direct TMDB Fetch Error:", e);
             }
             return [];
+        },
+
+        ensureTvEpisodesLoaded: async (item, itemId, targetSeason = 1) => {
+            if (!item) return;
+            const tmdbId = item.id || itemId;
+            if (!tmdbId || item.is_custom) return;
+
+            // 1. Fetch TV show detail to get all available seasons
+            if (!item.seasonsList || item.seasonsList.length === 0) {
+                try {
+                    const showData = await app.services.fetchTmdb(`/tv/${tmdbId}`);
+                    if (showData) {
+                        if (showData.seasons && Array.isArray(showData.seasons)) {
+                            item.seasonsList = showData.seasons.filter(s => s.season_number > 0);
+                            if (item.seasonsList.length === 0) item.seasonsList = showData.seasons;
+                        }
+                        if (!item.title && showData.name) item.title = showData.name;
+                        if (!item.name && showData.name) item.name = showData.name;
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch TV seasons list:", e);
+                }
+            }
+
+            // 2. Fetch episodes for targetSeason if missing
+            const hasSeasonEps = item.episodes && item.episodes.some(e => (e.season || 1) == targetSeason);
+            if (!hasSeasonEps) {
+                try {
+                    const seasonData = await app.services.fetchTmdb(`/tv/${tmdbId}/season/${targetSeason}`);
+                    if (seasonData && seasonData.episodes && Array.isArray(seasonData.episodes)) {
+                        const newEps = seasonData.episodes.map(ep => ({
+                            season: targetSeason,
+                            episode_number: ep.episode_number,
+                            title: ep.name ? `${ep.episode_number}. ${ep.name}` : `Episode ${ep.episode_number}`,
+                            overview: ep.overview || '',
+                            runtime: ep.runtime ? String(ep.runtime) : '45',
+                            still_path: ep.still_path ? (ep.still_path.startsWith('http') ? ep.still_path : `https://image.tmdb.org/t/p/w500${ep.still_path}`) : '',
+                            video_url: ''
+                        }));
+                        item.episodes = (item.episodes || []).filter(e => (e.season || 1) != targetSeason).concat(newEps);
+                    }
+                } catch (e) {
+                    console.warn(`Could not fetch season ${targetSeason} episodes:`, e);
+                }
+            }
+
+            // 3. Update the drawer in the DOM if it exists
+            if (app.handlers && app.handlers.refreshDrawerContent) {
+                app.handlers.refreshDrawerContent(item, targetSeason);
+            }
         },
 
         loadContent: async () => {
