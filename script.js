@@ -137,10 +137,101 @@ const app = {
     continueWatching: {
         STORAGE_KEY: 'tenflix_continue_watching',
 
+        isNearEnd: (currentTime = 0, duration = 0, progressPercent = 0) => {
+            const pct = parseInt(progressPercent) || 0;
+            if (pct >= 95) return true;
+            const cur = Math.floor(currentTime || 0);
+            const dur = Math.floor(duration || 0);
+            if (dur > 60 && cur > 0) {
+                if (dur - cur <= 25 || cur >= dur - 15) return true;
+                if ((cur / dur) >= 0.95) return true;
+            }
+            return false;
+        },
+
+        getNextEpisode: (item, currentSeason = 1, currentEpisode = 1) => {
+            let s = parseInt(currentSeason) || 1;
+            let e = parseInt(currentEpisode) || 1;
+            let nextS = s;
+            let nextE = e + 1;
+            let isLastOfSeries = false;
+
+            let currentSeasonEpCount = 0;
+            if (item && item.episodes && item.episodes.length > 0) {
+                const eps = item.episodes.filter(ep => (ep.season || 1) == s);
+                if (eps.length > 0) currentSeasonEpCount = eps.length;
+            }
+            if (!currentSeasonEpCount && item && item.seasonsList && item.seasonsList.length > 0) {
+                const sObj = item.seasonsList.find(so => so.season_number == s);
+                if (sObj && sObj.episode_count) currentSeasonEpCount = sObj.episode_count;
+            }
+
+            if (currentSeasonEpCount > 0 && nextE > currentSeasonEpCount) {
+                let availableSeasons = [];
+                if (item && item.seasonsList && item.seasonsList.length > 0) {
+                    availableSeasons = item.seasonsList.map(so => so.season_number).filter(sn => sn > 0).sort((a, b) => a - b);
+                } else if (item && item.episodes && item.episodes.length > 0) {
+                    availableSeasons = [...new Set(item.episodes.map(ep => parseInt(ep.season) || 1))].sort((a, b) => a - b);
+                }
+                const higherSeason = availableSeasons.find(sn => sn > s);
+                if (higherSeason) {
+                    nextS = higherSeason;
+                    nextE = 1;
+                } else if (availableSeasons.length > 0) {
+                    isLastOfSeries = true;
+                }
+            }
+
+            return { season: nextS, episode: nextE, isLastOfSeries };
+        },
+
         get: () => {
             try {
                 const data = localStorage.getItem('tenflix_continue_watching');
-                return data ? JSON.parse(data) : [];
+                let list = data ? JSON.parse(data) : [];
+                if (!Array.isArray(list)) return [];
+
+                let dirty = false;
+                const cleaned = [];
+
+                for (const item of list) {
+                    const isTv = !!(item.isTv || item.media_type === 'tv' || (item.season && item.episode));
+                    const isCompleted = app.continueWatching.isNearEnd(item.currentTime, item.duration, item.progressPercent);
+
+                    if (isCompleted) {
+                        dirty = true;
+                        if (isTv) {
+                            const fullItem = (window.appItemMap && window.appItemMap[item.id]) || (app.services && app.services.findItemById ? app.services.findItemById(item.id) : null) || item;
+                            const nextInfo = app.continueWatching.getNextEpisode(fullItem, item.season || 1, item.episode || 1);
+                            if (!nextInfo.isLastOfSeries) {
+                                cleaned.push({
+                                    ...item,
+                                    season: nextInfo.season,
+                                    episode: nextInfo.episode,
+                                    currentTime: 0,
+                                    duration: 0,
+                                    progressPercent: 1,
+                                    still_path: '',
+                                    updatedAt: Date.now()
+                                });
+                                setTimeout(() => {
+                                    app.continueWatching.fetchEpisodeStill(item.id, nextInfo.season, nextInfo.episode, true);
+                                }, 150);
+                            }
+                        }
+                    } else {
+                        cleaned.push(item);
+                    }
+                }
+
+                if (dirty) {
+                    try {
+                        localStorage.setItem('tenflix_continue_watching', JSON.stringify(cleaned));
+                    } catch(e) {}
+                    return cleaned;
+                }
+
+                return list;
             } catch(e) {
                 console.error("Failed to read continue watching:", e);
                 return [];
@@ -197,6 +288,25 @@ const app = {
                             }
                         }
                         return;
+                    } else if (!epData || !epData.id) {
+                        const nextSeasonData = await app.services.fetchTmdb(`/tv/${tmdbId}/season/${season + 1}/episode/1`);
+                        if (nextSeasonData && nextSeasonData.id) {
+                            const list = app.continueWatching.get();
+                            const target = list.find(i => String(i.id) === String(tmdbId));
+                            if (target && target.season == season) {
+                                target.season = season + 1;
+                                target.episode = 1;
+                                target.currentTime = 0;
+                                target.progressPercent = 1;
+                                if (nextSeasonData.still_path) {
+                                    target.still_path = nextSeasonData.still_path;
+                                    target.backdrop_path = nextSeasonData.still_path;
+                                }
+                                app.continueWatching.save(list);
+                                app.continueWatching.refreshRow();
+                            }
+                            return;
+                        }
                     }
                 }
                 // Fallback to show backdrop
@@ -223,13 +333,40 @@ const app = {
 
         record: (item, season = 1, episode = 1, currentTime = 0, duration = 0) => {
             if (!item || !item.id) return;
+            const isTv = app.services.isTvItem(item);
+
+            let progressPercent = 1;
+            if (duration && duration > 0 && currentTime > 0) {
+                progressPercent = Math.min(100, Math.max(1, Math.round((currentTime / duration) * 100)));
+            }
+
+            const isNearEnd = app.continueWatching.isNearEnd(currentTime, duration, progressPercent);
+
+            if (isNearEnd) {
+                if (isTv) {
+                    // Closed or ended in the last 15-25s / credits: automatically advance to NEXT episode!
+                    const nextInfo = app.continueWatching.getNextEpisode(item, season, episode);
+                    if (nextInfo.isLastOfSeries) {
+                        app.continueWatching.remove(item.id);
+                        return;
+                    }
+                    season = nextInfo.season;
+                    episode = nextInfo.episode;
+                    currentTime = 0;
+                    duration = 0;
+                    progressPercent = 1;
+                } else {
+                    // Movie finished: remove from Continue Watching
+                    app.continueWatching.remove(item.id);
+                    return;
+                }
+            }
+
             const list = app.continueWatching.get();
             const existingIdx = list.findIndex(i => String(i.id) === String(item.id));
 
-            const isTv = app.services.isTvItem(item);
-
             // Guard against overwriting high saved progress with opening 0/few startup seconds:
-            if (existingIdx !== -1) {
+            if (!isNearEnd && existingIdx !== -1) {
                 const existing = list[existingIdx];
                 const isSameTarget = isTv 
                     ? ((existing.season || 1) == (season || 1) && (existing.episode || 1) == (episode || 1))
@@ -239,14 +376,10 @@ const app = {
                     if (existing.duration && (!duration || duration <= 0)) {
                         duration = existing.duration;
                     }
+                    if (existing.progressPercent) {
+                        progressPercent = existing.progressPercent;
+                    }
                 }
-            }
-
-            let progressPercent = 1;
-            if (duration && duration > 0 && currentTime > 0) {
-                progressPercent = Math.min(100, Math.max(1, Math.round((currentTime / duration) * 100)));
-            } else if (existingIdx !== -1 && list[existingIdx].progressPercent) {
-                progressPercent = list[existingIdx].progressPercent;
             }
 
             // Look for episode still (16:9) if TV series
@@ -259,7 +392,7 @@ const app = {
             }
 
             const rawBackdrop = item.backdrop_path && item.backdrop_path !== item.poster_path ? item.backdrop_path : '';
-            const best16by9 = stillPath || rawBackdrop || '';
+            const best16by9 = (!isNearEnd ? stillPath : '') || rawBackdrop || '';
 
             const entry = {
                 id: item.id,
@@ -267,7 +400,7 @@ const app = {
                 media_type: isTv ? 'tv' : 'movie',
                 poster_path: item.poster_path || '',
                 backdrop_path: best16by9 || item.poster_path || '',
-                still_path: stillPath || '',
+                still_path: (!isNearEnd ? stillPath : '') || '',
                 isTv: !!isTv,
                 season: isTv ? (parseInt(season) || 1) : null,
                 episode: isTv ? (parseInt(episode) || 1) : null,
@@ -289,8 +422,8 @@ const app = {
             const sorted = list.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
             app.continueWatching.save(sorted);
 
-            // Asynchronously fetch TMDB 16:9 still/backdrop if missing
-            if (!best16by9 && item.id && !isNaN(item.id)) {
+            // Asynchronously fetch TMDB 16:9 still/backdrop if missing or if advanced to new episode
+            if (item.id && !isNaN(item.id)) {
                 app.continueWatching.fetchEpisodeStill(item.id, season, episode, isTv);
             }
         },
@@ -407,9 +540,22 @@ const app = {
             if (app.hoverCard) app.hoverCard.hide();
 
             const isTv = app.services.isTvItem(item, saved);
-            const s = isTv ? (saved && saved.season ? saved.season : 1) : null;
-            const e = isTv ? (saved && saved.episode ? saved.episode : 1) : null;
-            const startSec = (saved && saved.currentTime > 5) ? saved.currentTime : 0;
+            let s = isTv ? (saved && saved.season ? saved.season : 1) : null;
+            let e = isTv ? (saved && saved.episode ? saved.episode : 1) : null;
+            let startSec = (saved && saved.currentTime > 5) ? saved.currentTime : 0;
+
+            const isNearEnd = saved ? app.continueWatching.isNearEnd(saved.currentTime, saved.duration, saved.progressPercent) : false;
+            if (isTv && isNearEnd) {
+                const nextInfo = app.continueWatching.getNextEpisode(item, s, e);
+                if (nextInfo && !nextInfo.isLastOfSeries) {
+                    s = nextInfo.season;
+                    e = nextInfo.episode;
+                    startSec = 0;
+                    app.continueWatching.record(item, s, e, 0, 0);
+                }
+            } else if (!isTv && isNearEnd) {
+                startSec = 0;
+            }
 
             let videoUrl = null;
             if (isTv && item.episodes && item.episodes.length > 0) {
@@ -1774,8 +1920,11 @@ const app = {
                 if (saved && saved.currentTime > 5) {
                     const isSameEp = isTv ? ((saved.season || 1) == targetSeason && (saved.episode || 1) == targetEpisode) : true;
                     if (isSameEp) {
-                        startAt = saved.currentTime;
-                        if (saved.duration && saved.duration > 0) estimatedDuration = saved.duration;
+                        const isNearEnd = app.continueWatching.isNearEnd(saved.currentTime, saved.duration, saved.progressPercent);
+                        if (!isNearEnd) {
+                            startAt = saved.currentTime;
+                            if (saved.duration && saved.duration > 0) estimatedDuration = saved.duration;
+                        }
                     }
                 }
             }
@@ -3522,26 +3671,14 @@ const app = {
             const item = (window.appItemMap && window.appItemMap[itemId]) || app.services.findItemById(itemId) || window.currentItem || window.currentPlayingItem;
             if (!item) return;
 
-            let targetSeason = currentSeason;
-            let targetEpisode = currentEpisode + 1;
-
-            const currentSeasonEps = (item.episodes || []).filter(e => (e.season || 1) == currentSeason);
-            if (currentSeasonEps.length > 0 && targetEpisode > currentSeasonEps.length) {
-                let availableSeasons = [];
-                if (item.seasonsList && item.seasonsList.length > 0) {
-                    availableSeasons = item.seasonsList.map(s => s.season_number);
-                } else if (item.episodes && item.episodes.length > 0) {
-                    availableSeasons = [...new Set(item.episodes.map(e => parseInt(e.season) || 1))].sort((a, b) => a - b);
-                }
-                const nextSeason = availableSeasons.find(s => s > currentSeason);
-                if (nextSeason) {
-                    targetSeason = nextSeason;
-                    targetEpisode = 1;
-                } else {
-                    alert("You've reached the last episode of the series!");
-                    return;
-                }
+            const nextInfo = app.continueWatching.getNextEpisode(item, currentSeason, currentEpisode);
+            if (nextInfo.isLastOfSeries) {
+                alert("You've reached the last episode of the series!");
+                return;
             }
+
+            const targetSeason = nextInfo.season;
+            const targetEpisode = nextInfo.episode;
 
             // Look up direct episode URL if available
             let nextEpUrl = null;
