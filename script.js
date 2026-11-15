@@ -12,7 +12,7 @@ const app = {
             comedy: []
         },
         config: {
-            tmdbBaseUrl: 'https://api.themoviedb.org/3',
+            tmdbBaseUrl: 'https://api.tmdb.org/3',
             imageBaseUrl: 'https://image.tmdb.org/t/p/w500',
             backdropBaseUrl: 'https://image.tmdb.org/t/p/original',
             apiKey: localStorage.getItem('netflix_tmdb_key') || 'd582a5bf11361f97f2946cbb1cc55ce8'
@@ -937,6 +937,13 @@ const app = {
                         selectSuggestion(items[activeSuggestionIdx].dataset.title);
                     } else {
                         hideSuggestions();
+                        const q = searchInput.value.trim();
+                        if (q) {
+                            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+                            const main = document.getElementById('main-content');
+                            if (main) app.pages.search(main, q);
+                            searchInput.blur();
+                        }
                     }
                 } else if (e.key === 'Escape') {
                     const legalModal = document.getElementById('legal-modal');
@@ -4427,30 +4434,50 @@ const app = {
                 <div class="content-rows" style="padding-top: 100px; padding-bottom: 50px; position: relative; z-index: 10;">
                     <div class="row-container" id="row-trending-tv"></div>
                     <div class="row-container" id="row-popular-tv"></div>
+                    <div class="row-container" id="row-top-rated-tv"></div>
+                    <div class="row-container" id="row-comedy-tv"></div>
                     <div class="row-container" id="row-custom-tv"></div>
                 </div>
             `;
             container.innerHTML = html;
 
-            // 1. Trending TV Shows (Real TMDB Data)
-            if (tmdb.trendingTv && tmdb.trendingTv.length > 0) {
-                app.components.createRow(document.getElementById('row-trending-tv'), "Trending TV Shows", tmdb.trendingTv);
-                const r = document.getElementById('row-trending-tv').querySelector('.row');
-                if (r) r.style.marginTop = '0';
-            }
+            const renderTvRow = (rowId, title, items, fetchPath) => {
+                const el = document.getElementById(rowId);
+                if (!el) return;
+                if (items && items.length > 0) {
+                    el.innerHTML = '';
+                    app.components.createRow(el, title, items);
+                    const r = el.querySelector('.row');
+                    if (r) r.style.marginTop = '0';
+                    if (window.lucide) window.lucide.createIcons();
+                } else if (fetchPath) {
+                    app.services.fetchTmdb(fetchPath).then(data => {
+                        if (data && data.length > 0) {
+                            el.innerHTML = '';
+                            app.components.createRow(el, title, data);
+                            const r = el.querySelector('.row');
+                            if (r) r.style.marginTop = '0';
+                            if (window.lucide) window.lucide.createIcons();
+                        }
+                    });
+                }
+            };
 
-            // 2. Popular TV Series (The Office, Stranger Things, Breaking Bad, etc.)
-            if (tmdb.popularTv && tmdb.popularTv.length > 0) {
-                app.components.createRow(document.getElementById('row-popular-tv'), "Popular Series", tmdb.popularTv);
-                const r = document.getElementById('row-popular-tv').querySelector('.row');
-                if (r) r.style.marginTop = '0';
-            }
+            // 1. Trending TV Shows (Modern Family, Stranger Things, etc.)
+            renderTvRow('row-trending-tv', "Trending TV Shows", tmdb.trendingTv, '/trending/tv/week');
 
-            // 3. My Custom TV Shows
+            // 2. Popular TV Series (Law & Order, The Office, etc.)
+            renderTvRow('row-popular-tv', "Popular Series", tmdb.popularTv, '/tv/popular');
+
+            // 3. Top Rated Series (Breaking Bad, Arcane, etc.)
+            renderTvRow('row-top-rated-tv', "Top Rated TV Series", tmdb.topRatedTv, '/tv/top_rated');
+
+            // 4. Comedy & Sitcom Hits (Modern Family, Brooklyn Nine-Nine, The Office)
+            renderTvRow('row-comedy-tv', "Comedy & Sitcom Hits", tmdb.comedyTv, '/discover/tv?with_genres=35');
+
+            // 5. My Custom TV Shows
             if (customShows && customShows.length > 0) {
-                app.components.createRow(document.getElementById('row-custom-tv'), "My Custom TV Shows", customShows);
-                const r = document.getElementById('row-custom-tv').querySelector('.row');
-                if (r) r.style.marginTop = '0';
+                renderTvRow('row-custom-tv', "My Custom TV Shows", customShows);
             }
 
             if (window.lucide) window.lucide.createIcons();
@@ -4465,94 +4492,49 @@ const app = {
                     <div class="row-container" id="row-trending-movies"></div>
                     <div class="row-container" id="row-popular-movies"></div>
                     <div class="row-container" id="row-top-rated-movies"></div>
+                    <div class="row-container" id="row-action-movies"></div>
                     <div class="row-container" id="row-custom-movies"></div>
                 </div>
             `;
             container.innerHTML = html;
 
-            // 1. Trending Movies (Real TMDB Data)
-            if (tmdb.trendingMovies && tmdb.trendingMovies.length > 0) {
-                app.components.createRow(document.getElementById('row-trending-movies'), "Trending Movies", tmdb.trendingMovies);
-                const r = document.getElementById('row-trending-movies').querySelector('.row');
-                if (r) r.style.marginTop = '0';
-            } else {
-                app.services.fetchTmdb('/trending/movie/week').then(movies => {
-                    if (movies && movies.length > 0) {
-                        app.state.tmdbContent.trendingMovies = movies;
-                        const rowEl = document.getElementById('row-trending-movies');
-                        if (rowEl) {
-                            rowEl.innerHTML = '';
-                            app.components.createRow(rowEl, "Trending Movies", movies);
-                            const r = rowEl.querySelector('.row');
+            const renderMovieRow = (rowId, title, items, fetchPath) => {
+                const el = document.getElementById(rowId);
+                if (!el) return;
+                if (items && items.length > 0) {
+                    el.innerHTML = '';
+                    app.components.createRow(el, title, items);
+                    const r = el.querySelector('.row');
+                    if (r) r.style.marginTop = '0';
+                    if (window.lucide) window.lucide.createIcons();
+                } else if (fetchPath) {
+                    app.services.fetchTmdb(fetchPath).then(data => {
+                        if (data && data.length > 0) {
+                            el.innerHTML = '';
+                            app.components.createRow(el, title, data);
+                            const r = el.querySelector('.row');
                             if (r) r.style.marginTop = '0';
                             if (window.lucide) window.lucide.createIcons();
                         }
-                    }
-                });
-            }
+                    });
+                }
+            };
 
-            // 2. Popular Movies (Real TMDB Data: Only movies that are released and watchable right now)
-            const realPopularList = (tmdb.popularMovies && tmdb.popularMovies.length > 0)
-                ? tmdb.popularMovies
-                : (tmdb.trendingMovies && tmdb.trendingMovies.length > 0 ? tmdb.trendingMovies : []);
-            const seen = new Set();
-            const todayStr = new Date().toISOString().split('T')[0];
-            const uniquePopular = realPopularList
-                .filter(m => !m.release_date || m.release_date <= todayStr)
-                .filter(m => m.vote_count === undefined || m.vote_count >= 10)
-                .filter(m => {
-                    const key = m.id || m.title;
-                    if (!key || seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                });
+            // 1. Trending Movies
+            renderMovieRow('row-trending-movies', "Trending Movies", tmdb.trendingMovies, '/trending/movie/week');
 
-            if (uniquePopular.length > 0) {
-                app.components.createRow(document.getElementById('row-popular-movies'), "Popular Movies", uniquePopular);
-                const rPop = document.getElementById('row-popular-movies').querySelector('.row');
-                if (rPop) rPop.style.marginTop = '0';
-            } else {
-                app.services.fetchTmdb('/movie/popular').then(movies => {
-                    if (movies && movies.length > 0) {
-                        app.state.tmdbContent.popularMovies = movies;
-                        const rowEl = document.getElementById('row-popular-movies');
-                        if (rowEl) {
-                            rowEl.innerHTML = '';
-                            app.components.createRow(rowEl, "Popular Movies", movies);
-                            const r = rowEl.querySelector('.row');
-                            if (r) r.style.marginTop = '0';
-                            if (window.lucide) window.lucide.createIcons();
-                        }
-                    }
-                });
-            }
+            // 2. Popular Movies
+            renderMovieRow('row-popular-movies', "Popular Movies", tmdb.popularMovies, '/movie/popular');
 
-            // 3. Top Rated Classics (Inception, The Dark Knight, etc.)
-            if (tmdb.topRated && tmdb.topRated.length > 0) {
-                app.components.createRow(document.getElementById('row-top-rated-movies'), "Top Rated Classics", tmdb.topRated);
-                const r = document.getElementById('row-top-rated-movies').querySelector('.row');
-                if (r) r.style.marginTop = '0';
-            } else {
-                app.services.fetchTmdb('/movie/top_rated').then(movies => {
-                    if (movies && movies.length > 0) {
-                        app.state.tmdbContent.topRated = movies;
-                        const rowEl = document.getElementById('row-top-rated-movies');
-                        if (rowEl) {
-                            rowEl.innerHTML = '';
-                            app.components.createRow(rowEl, "Top Rated Classics", movies);
-                            const r = rowEl.querySelector('.row');
-                            if (r) r.style.marginTop = '0';
-                            if (window.lucide) window.lucide.createIcons();
-                        }
-                    }
-                });
-            }
+            // 3. Top Rated Classics
+            renderMovieRow('row-top-rated-movies', "Top Rated Classics", tmdb.topRated, '/movie/top_rated');
 
-            // 4. My Custom Movies
+            // 4. Action & Adventure
+            renderMovieRow('row-action-movies', "Action & Adventure", tmdb.actionMovies, '/discover/movie?with_genres=28');
+
+            // 5. My Custom Movies
             if (customMovies && customMovies.length > 0) {
-                app.components.createRow(document.getElementById('row-custom-movies'), "My Custom Movies", customMovies);
-                const r = document.getElementById('row-custom-movies').querySelector('.row');
-                if (r) r.style.marginTop = '0';
+                renderMovieRow('row-custom-movies', "My Custom Movies", customMovies);
             }
 
             if (window.lucide) window.lucide.createIcons();
@@ -4841,21 +4823,51 @@ const app = {
 
         fetchTmdb: async (path) => {
             const apiKey = 'd582a5bf11361f97f2946cbb1cc55ce8';
-            const tmdbBaseUrl = 'https://api.themoviedb.org/3';
-            let url = `${tmdbBaseUrl}${path}`;
-            if (!url.includes('?')) url += '?language=en-US';
-            else url += '&language=en-US';
-            url += `&api_key=${apiKey}`;
+            const primaryBase = 'https://api.tmdb.org/3';
+            const fallbackBase = 'https://api.themoviedb.org/3';
 
+            if (!app._tmdbCache) app._tmdbCache = {};
+            if (app._tmdbCache[path]) return app._tmdbCache[path];
+
+            const buildUrl = (base) => {
+                let url = `${base}${path}`;
+                if (!url.includes('?')) url += '?language=en-US';
+                else url += '&language=en-US';
+                return `${url}&api_key=${apiKey}`;
+            };
+
+            // 1. Try primary unblocked endpoint (api.tmdb.org) with 5s timeout
             try {
-                const res = await fetch(url);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(buildUrl(primaryBase), { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (res.ok) {
                     const data = await res.json();
-                    return data.results !== undefined ? data.results : data;
+                    const result = data.results !== undefined ? data.results : data;
+                    app._tmdbCache[path] = result;
+                    return result;
                 }
             } catch (e) {
-                console.warn("Direct TMDB Fetch Error:", e);
+                console.warn("Primary TMDB (api.tmdb.org) notice:", e.message || e);
             }
+
+            // 2. Try secondary endpoint (api.themoviedb.org) with 5s timeout
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(buildUrl(fallbackBase), { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const data = await res.json();
+                    const result = data.results !== undefined ? data.results : data;
+                    app._tmdbCache[path] = result;
+                    return result;
+                }
+            } catch (e) {
+                console.warn("Fallback TMDB error:", e.message || e);
+            }
+
             return [];
         },
 
@@ -4911,21 +4923,37 @@ const app = {
 
         loadContent: async () => {
             try {
-                const [trending, trendingMovies, trendingTv, popularMovies, popularTv, topRated] = await Promise.all([
-                    app.services.fetchTmdb('/trending/all/day'),
-                    app.services.fetchTmdb('/trending/movie/week'),
-                    app.services.fetchTmdb('/trending/tv/week'),
-                    app.services.fetchTmdb('/movie/popular'),
-                    app.services.fetchTmdb('/tv/popular'),
-                    app.services.fetchTmdb('/movie/top_rated')
+                const [
+                    trending,
+                    trendingMovies,
+                    trendingTv,
+                    popularMovies,
+                    popularTv,
+                    topRated,
+                    topRatedTv,
+                    actionMovies,
+                    comedyTv
+                ] = await Promise.all([
+                    app.services.fetchTmdb('/trending/all/day').catch(() => []),
+                    app.services.fetchTmdb('/trending/movie/week').catch(() => []),
+                    app.services.fetchTmdb('/trending/tv/week').catch(() => []),
+                    app.services.fetchTmdb('/movie/popular').catch(() => []),
+                    app.services.fetchTmdb('/tv/popular').catch(() => []),
+                    app.services.fetchTmdb('/movie/top_rated').catch(() => []),
+                    app.services.fetchTmdb('/tv/top_rated').catch(() => []),
+                    app.services.fetchTmdb('/discover/movie?with_genres=28').catch(() => []),
+                    app.services.fetchTmdb('/discover/tv?with_genres=35').catch(() => [])
                 ]);
 
-                if (trending.length > 0) app.state.tmdbContent.trending = trending;
-                if (trendingMovies.length > 0) app.state.tmdbContent.trendingMovies = trendingMovies;
-                if (trendingTv.length > 0) app.state.tmdbContent.trendingTv = trendingTv;
-                if (popularMovies.length > 0) app.state.tmdbContent.popularMovies = popularMovies;
-                if (popularTv.length > 0) app.state.tmdbContent.popularTv = popularTv;
-                if (topRated.length > 0) app.state.tmdbContent.topRated = topRated;
+                if (trending && trending.length > 0) app.state.tmdbContent.trending = trending;
+                if (trendingMovies && trendingMovies.length > 0) app.state.tmdbContent.trendingMovies = trendingMovies;
+                if (trendingTv && trendingTv.length > 0) app.state.tmdbContent.trendingTv = trendingTv;
+                if (popularMovies && popularMovies.length > 0) app.state.tmdbContent.popularMovies = popularMovies;
+                if (popularTv && popularTv.length > 0) app.state.tmdbContent.popularTv = popularTv;
+                if (topRated && topRated.length > 0) app.state.tmdbContent.topRated = topRated;
+                if (topRatedTv && topRatedTv.length > 0) app.state.tmdbContent.topRatedTv = topRatedTv;
+                if (actionMovies && actionMovies.length > 0) app.state.tmdbContent.actionMovies = actionMovies;
+                if (comedyTv && comedyTv.length > 0) app.state.tmdbContent.comedyTv = comedyTv;
             } catch (err) {
                 console.error("API Fetch Failed", err);
                 app.services.useMockData();

@@ -2153,6 +2153,13 @@ button.close-player:hover {
         gap: 8px !important;
     }
 
+    .search-query-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+        padding: 10px 0 80px 0 !important;
+    }
+
     .search-results-grid .poster {
         width: 100% !important;
         min-width: 0 !important;
