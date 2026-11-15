@@ -2451,3 +2451,40 @@ button.close-player:hover {
         width: 220px !important;
     }
 }
+
+/* ==========================================================
+   FLOATING TAP-TO-UNMUTE HELPER PILL (ZERO AD TOUCH)
+   ========================================================== */
+.player-unmute-pill {
+    position: fixed !important;
+    bottom: 28px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 2147483647 !important;
+    background: #e50914 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 28px !important;
+    padding: 10px 22px !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 14px rgba(229, 9, 20, 0.5) !important;
+    transition: opacity 0.3s ease, transform 0.3s ease !important;
+    animation: pulseUnmuteBtn 2s infinite ease-in-out !important;
+    pointer-events: auto !important;
+}
+
+@keyframes pulseUnmuteBtn {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+}
+
+.player-unmute-pill.fade-out {
+    opacity: 0 !important;
+    transform: translateX(-50%) scale(0.9) !important;
+    pointer-events: none !important;
+}
