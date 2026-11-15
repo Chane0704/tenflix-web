@@ -1826,8 +1826,8 @@ const app = {
             const hasDrive = item && ((item.video_url && item.video_url.includes('drive.google.com')) || (item.episodes && item.episodes.some(e => e.video_url && e.video_url.includes('drive.google.com'))));
             const isDirectDriveUrl = videoUrl && videoUrl.includes('drive.google.com');
 
-            // Default to 'drive' for custom Google Drive content, otherwise default to Server 1 (EmbedWave Ad-Free)
-            if (activeServer === null || activeServer === undefined || (isDirectDriveUrl && activeServer !== 2 && activeServer !== 3 && activeServer !== 4)) {
+            // Default to 'drive' for custom Google Drive content, otherwise default to Server 1 (VidLink)
+            if (activeServer === null || activeServer === undefined || (isDirectDriveUrl && activeServer !== 2 && activeServer !== 3)) {
                 if (hasDrive || isDirectDriveUrl) {
                     activeServer = 'drive';
                 } else {
@@ -1964,10 +1964,8 @@ const app = {
 
             let activeServerLabel = 'Server 1';
             if (activeServer === 'drive') activeServerLabel = 'Drive';
-            else if (activeServer == 1) activeServerLabel = 'Server 1';
             else if (activeServer == 2) activeServerLabel = 'Server 2';
             else if (activeServer == 3) activeServerLabel = 'Server 3';
-            else if (activeServer == 4) activeServerLabel = 'Server 4';
 
             // Top Bar with prominent Back button, Show Title, Episodes/Next (TV series only), Server pill/buttons, and Close (X)
             const topBarHtml = `
@@ -2010,10 +2008,9 @@ const app = {
                             <!-- Desktop Server Buttons -->
                             <div class="server-btn-group">
                                 ${hasDrive ? `<button class="server-btn ${activeServer == 'drive' ? 'active' : ''}" onclick="app.handlers.switchPlayerServer('drive')" title="Google Drive Direct Stream (100% Ad-Free)"><i data-lucide="cloud"></i> Drive</button>` : ''}
-                                <button class="server-btn ${activeServer == 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)" title="Server 1 (EmbedWave - No Ads, No Popups)"><i data-lucide="shield-check"></i> Server 1</button>
-                                <button class="server-btn ${activeServer == 2 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)" title="Server 2 (VidLink - Fast HD, may show ads)"><i data-lucide="play-circle"></i> Server 2</button>
-                                <button class="server-btn ${activeServer == 3 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(3)" title="Server 3 (AutoEmbed Alternative)"><i data-lucide="sparkles"></i> Server 3</button>
-                                <button class="server-btn ${activeServer == 4 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(4)" title="Server 4 (2Embed Global Backup)"><i data-lucide="tv"></i> Server 4</button>
+                                <button class="server-btn ${activeServer == 1 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(1)" title="Server 1 (VidLink Primary)"><i data-lucide="play-circle"></i> Server 1</button>
+                                <button class="server-btn ${activeServer == 2 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(2)" title="Server 2 (AutoEmbed Alternative)"><i data-lucide="sparkles"></i> Server 2</button>
+                                <button class="server-btn ${activeServer == 3 ? 'active' : ''}" onclick="app.handlers.switchPlayerServer(3)" title="Server 3 (2Embed Global Backup)"><i data-lucide="tv"></i> Server 3</button>
                             </div>
                         </div>
                         <button class="player-control-btn player-close-btn" onclick="app.handlers.closePlayer()" title="Close Player (Esc)">
@@ -2049,36 +2046,28 @@ const app = {
                                 </div>
                             ` : ''}
                             <div class="sheet-server-card ${activeServer == 1 ? 'selected' : ''}" onclick="app.handlers.switchPlayerServer(1); app.handlers.closeServerSheet();">
-                                <div class="sheet-server-icon"><i data-lucide="shield-check"></i></div>
+                                <div class="sheet-server-icon"><i data-lucide="play-circle"></i></div>
                                 <div class="sheet-server-info">
-                                    <div class="sheet-server-name">Server 1 (EmbedWave) <span class="server-badge badge-primary">Ad-Free Default</span></div>
-                                    <div class="sheet-server-status">Clean player, zero popups & ad-free streaming</div>
+                                    <div class="sheet-server-name">Server 1 (VidLink) <span class="server-badge badge-primary">Primary Default</span></div>
+                                    <div class="sheet-server-status">Fast red player, multi-audio & instant buffering</div>
                                 </div>
                                 <div class="sheet-server-check">${activeServer == 1 ? '<i data-lucide="check-circle" class="check-active"></i>' : '<div class="sheet-radio-circle"></div>'}</div>
                             </div>
                             <div class="sheet-server-card ${activeServer == 2 ? 'selected' : ''}" onclick="app.handlers.switchPlayerServer(2); app.handlers.closeServerSheet();">
-                                <div class="sheet-server-icon"><i data-lucide="play-circle"></i></div>
+                                <div class="sheet-server-icon"><i data-lucide="sparkles"></i></div>
                                 <div class="sheet-server-info">
-                                    <div class="sheet-server-name">Server 2 (VidLink) <span class="server-badge badge-fallback">Fast HD (may show ads)</span></div>
-                                    <div class="sheet-server-status">Fast red player, multi-audio & instant buffering (may open ad popups on mobile)</div>
+                                    <div class="sheet-server-name">Server 2 (AutoEmbed) <span class="server-badge badge-fallback">Alternative</span></div>
+                                    <div class="sheet-server-status">Reliable multi-source backup stream</div>
                                 </div>
                                 <div class="sheet-server-check">${activeServer == 2 ? '<i data-lucide="check-circle" class="check-active"></i>' : '<div class="sheet-radio-circle"></div>'}</div>
                             </div>
                             <div class="sheet-server-card ${activeServer == 3 ? 'selected' : ''}" onclick="app.handlers.switchPlayerServer(3); app.handlers.closeServerSheet();">
-                                <div class="sheet-server-icon"><i data-lucide="sparkles"></i></div>
-                                <div class="sheet-server-info">
-                                    <div class="sheet-server-name">Server 3 (AutoEmbed) <span class="server-badge badge-fallback">Alternative</span></div>
-                                    <div class="sheet-server-status">Reliable multi-source backup stream</div>
-                                </div>
-                                <div class="sheet-server-check">${activeServer == 3 ? '<i data-lucide="check-circle" class="check-active"></i>' : '<div class="sheet-radio-circle"></div>'}</div>
-                            </div>
-                            <div class="sheet-server-card ${activeServer == 4 ? 'selected' : ''}" onclick="app.handlers.switchPlayerServer(4); app.handlers.closeServerSheet();">
                                 <div class="sheet-server-icon"><i data-lucide="tv"></i></div>
                                 <div class="sheet-server-info">
-                                    <div class="sheet-server-name">Server 4 (2Embed) <span class="server-badge badge-fallback">Global Backup</span></div>
+                                    <div class="sheet-server-name">Server 3 (2Embed) <span class="server-badge badge-fallback">Global Backup</span></div>
                                     <div class="sheet-server-status">Secondary mirror for rare or hard-to-find titles</div>
                                 </div>
-                                <div class="sheet-server-check">${activeServer == 4 ? '<i data-lucide="check-circle" class="check-active"></i>' : '<div class="sheet-radio-circle"></div>'}</div>
+                                <div class="sheet-server-check">${activeServer == 3 ? '<i data-lucide="check-circle" class="check-active"></i>' : '<div class="sheet-radio-circle"></div>'}</div>
                             </div>
                         </div>
                     </div>
@@ -2133,21 +2122,7 @@ const app = {
                     ${topBarHtml}
                     ${drawerHtml}
                     ${serverSheetHtml}
-                    <!-- Floating Mobile Tap-to-Unmute Helper Button (Zero Ad Touch) -->
-                    <button id="player-mobile-unmute-btn" class="player-unmute-pill" onclick="app.handlers.triggerPlayerUnmute(event)" title="Tap to Unmute Audio">
-                        <i data-lucide="volume-2"></i>
-                        <span>Tap to Unmute</span>
-                    </button>
                 `;
-
-                // Auto-fade the unmute pill after 8 seconds if not clicked
-                setTimeout(() => {
-                    const unmuteBtn = document.getElementById('player-mobile-unmute-btn');
-                    if (unmuteBtn) {
-                        unmuteBtn.classList.add('fade-out');
-                        setTimeout(() => { if (unmuteBtn) unmuteBtn.remove(); }, 400);
-                    }
-                }, 8000);
 
                 // Dispatch unmute signals to iframe
                 const iframe = modal.querySelector('#main-player-iframe');
@@ -2518,30 +2493,7 @@ const app = {
             app.router.openPlayer(streamUrl, null, id, null, 1, isTv ? 1 : null, isTv ? 1 : null);
         },
 
-        triggerPlayerUnmute: (e) => {
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            const btn = document.getElementById('player-mobile-unmute-btn');
-            if (btn) {
-                btn.classList.add('fade-out');
-                setTimeout(() => { if (btn) btn.remove(); }, 350);
-            }
-            const iframe = document.getElementById('main-player-iframe');
-            if (iframe && iframe.contentWindow) {
-                try {
-                    iframe.contentWindow.postMessage({ method: 'setMute', value: false }, '*');
-                    iframe.contentWindow.postMessage({ method: 'unmute' }, '*');
-                    iframe.contentWindow.postMessage({ method: 'setVolume', value: 100 }, '*');
-                    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute' }), '*');
-                    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-                    iframe.contentWindow.postMessage({ type: 'UNMUTE' }, '*');
-                    iframe.contentWindow.postMessage({ type: 'SET_VOLUME', volume: 1 }, '*');
-                    iframe.contentWindow.postMessage({ action: 'unmute' }, '*');
-                } catch (err) {}
-            }
-        },
+        triggerPlayerUnmute: () => {},
 
         switchPlayerServer: (targetServerNum) => {
             let item = window.currentPlayingItem;
@@ -4942,26 +4894,22 @@ const app = {
         getServerUrl: (serverNum, tmdbId, isTv, season = 1, episode = 1) => {
             const sNum = parseInt(serverNum) || 1;
             switch (sNum) {
-                case 1: // EmbedWave (Zero Popups, Clean Default)
-                    return isTv 
-                        ? `https://embedwave.cc/embed/tv/${tmdbId}/${season}/${episode}`
-                        : `https://embedwave.cc/embed/movie/${tmdbId}`;
-                case 2: // VidLink Pro (Fast HD, may show ads on mobile)
+                case 1: // VidLink Pro (Primary Default - Fast Red Player)
                     return isTv 
                         ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
                         : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
-                case 3: // AutoEmbed (Alternative Stream)
+                case 2: // AutoEmbed (Secondary Fallback 1)
                     return isTv 
                         ? `https://autoembed.me/tv/tmdb/${tmdbId}-${season}-${episode}`
                         : `https://autoembed.me/movie/tmdb/${tmdbId}`;
-                case 4: // 2Embed (Global Backup)
+                case 3: // 2Embed (Secondary Fallback 2)
                     return isTv
                         ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
                         : `https://www.2embed.cc/embed/${tmdbId}`;
                 default:
                     return isTv 
-                        ? `https://embedwave.cc/embed/tv/${tmdbId}/${season}/${episode}`
-                        : `https://embedwave.cc/embed/movie/${tmdbId}`;
+                        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=E50914&autoplay=true&nextbutton=true`
+                        : `https://vidlink.pro/movie/${tmdbId}?primaryColor=E50914&autoplay=true`;
             }
         },
 
