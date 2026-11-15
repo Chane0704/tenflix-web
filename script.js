@@ -221,62 +221,6 @@ const app = {
             } catch(e) {}
         },
 
-        syncFromVidLink: (mediaData) => {
-            if (!mediaData || typeof mediaData !== 'object') return;
-            const currentItem = window.currentPlayingItem 
-                || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null);
-            if (!currentItem) return;
-
-            const entries = Array.isArray(mediaData) 
-                ? mediaData 
-                : (mediaData.id ? [mediaData] : Object.values(mediaData));
-
-            for (const entry of entries) {
-                if (!entry || typeof entry !== 'object') continue;
-                const entryId = entry.id || entry.tmdbId;
-                if (!entryId) continue;
-
-                // STRICT: ONLY update the item the user actively launched and played on TenFlix!
-                const isCurrent = (String(currentItem.id) === String(entryId) || String(app.customTmdbMap[currentItem.id]) === String(entryId));
-                if (!isCurrent) continue;
-
-                let watched = 0;
-                let duration = 0;
-                let season = entry.last_season_watched ? parseInt(entry.last_season_watched) : (window.currentSeason || 1);
-                let episode = entry.last_episode_watched ? parseInt(entry.last_episode_watched) : (window.currentEpisode || 1);
-
-                if (entry.show_progress && typeof entry.show_progress === 'object') {
-                    const epKey = `s${season}e${episode}`;
-                    const epProgress = entry.show_progress[epKey] || entry.show_progress[`s0${season}e0${episode}`] || Object.values(entry.show_progress).pop();
-                    if (epProgress) {
-                        if (epProgress.season) season = parseInt(epProgress.season) || season;
-                        if (epProgress.episode) episode = parseInt(epProgress.episode) || episode;
-                        if (epProgress.progress) {
-                            watched = Number(epProgress.progress.watched ?? epProgress.progress.currentTime ?? 0);
-                            duration = Number(epProgress.progress.duration ?? 0);
-                        }
-                    }
-                }
-
-                if (!watched && entry.progress) {
-                    watched = Number(entry.progress.watched ?? entry.progress.currentTime ?? 0);
-                    duration = Number(entry.progress.duration ?? 0);
-                }
-                if (!watched) {
-                    watched = Number(entry.watched_seconds ?? entry.currentTime ?? entry.current_time ?? entry.watched ?? 0);
-                    duration = Number(entry.duration ?? entry.total_duration ?? 0);
-                }
-
-                if (watched > 0) {
-                    window._currentPlaybackTime = Math.floor(watched);
-                    if (duration > 0) {
-                        window._currentPlaybackDuration = Math.floor(duration);
-                    }
-                    app.continueWatching.record(currentItem, season, episode, watched, duration);
-                }
-            }
-        },
-
         record: (item, season = 1, episode = 1, currentTime = 0, duration = 0) => {
             if (!item || !item.id) return;
             const list = app.continueWatching.get();
@@ -1431,18 +1375,7 @@ const app = {
                         app.audio.setMuted(false);
                     }
 
-                    // 1. Official VidLink MEDIA_DATA progress synchronization
-                    if (data.type === 'MEDIA_DATA' || (data.data && data.data.type === 'MEDIA_DATA')) {
-                        const mediaData = (data.data && data.data.type === 'MEDIA_DATA') ? data.data.data : (data.data || data);
-                        try {
-                            localStorage.setItem('vidLinkProgress', JSON.stringify(mediaData));
-                        } catch (e) {}
-                        if (app.continueWatching && app.continueWatching.syncFromVidLink) {
-                            app.continueWatching.syncFromVidLink(mediaData);
-                        }
-                    }
-
-                    // 2. Individual player events (PLAYER_EVENT, timeupdate, seeked, ended)
+                    // Individual player events (PLAYER_EVENT, timeupdate, seeked, ended)
                     const isVidLinkOrigin = event.origin && event.origin.includes('vidlink');
                     const isPlayerEvent = data.type === 'PLAYER_EVENT' || data.event === 'timeupdate' || (data.data && (data.data.event || data.data.currentTime !== undefined));
                     
@@ -1585,18 +1518,12 @@ const app = {
             if (!localStorage.getItem('tenflix_user_explicit_muted')) {
                 localStorage.setItem('tenflix_player_muted', 'false');
             }
-            // Clean up any unplayed items that were erroneously imported from external cache
+            // Reset continue watching data for all users so it starts clean and empty as requested
             try {
-                localStorage.removeItem('vidLinkProgress');
-                const rawCw = localStorage.getItem('tenflix_continue_watching');
-                if (rawCw) {
-                    let cwList = JSON.parse(rawCw);
-                    const bogusTitles = ['frozen fever', 'deadpool & wolverine', 'apocalypse z', 'the mentalist', 'frozen'];
-                    cwList = cwList.filter(item => {
-                        const title = (item.title || item.name || '').toLowerCase();
-                        return !bogusTitles.some(b => title.includes(b));
-                    });
-                    localStorage.setItem('tenflix_continue_watching', JSON.stringify(cwList));
+                if (localStorage.getItem('tenflix_cw_reset_v4') !== 'true') {
+                    localStorage.removeItem('tenflix_continue_watching');
+                    localStorage.removeItem('vidLinkProgress');
+                    localStorage.setItem('tenflix_cw_reset_v4', 'true');
                 }
             } catch (e) {}
             app.hoverCard.init();
