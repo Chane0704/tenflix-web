@@ -225,6 +225,7 @@ const app = {
             if (!mediaData || typeof mediaData !== 'object') return;
             const currentItem = window.currentPlayingItem 
                 || (window.currentPlayingItemId ? ((window.appItemMap && window.appItemMap[window.currentPlayingItemId]) || app.services.findItemById(window.currentPlayingItemId)) : null);
+            if (!currentItem) return;
 
             const entries = Array.isArray(mediaData) 
                 ? mediaData 
@@ -234,6 +235,10 @@ const app = {
                 if (!entry || typeof entry !== 'object') continue;
                 const entryId = entry.id || entry.tmdbId;
                 if (!entryId) continue;
+
+                // STRICT: ONLY update the item the user actively launched and played on TenFlix!
+                const isCurrent = (String(currentItem.id) === String(entryId) || String(app.customTmdbMap[currentItem.id]) === String(entryId));
+                if (!isCurrent) continue;
 
                 let watched = 0;
                 let duration = 0;
@@ -263,23 +268,11 @@ const app = {
                 }
 
                 if (watched > 0) {
-                    const isCurrent = currentItem && (String(currentItem.id) === String(entryId) || String(app.customTmdbMap[currentItem.id]) === String(entryId));
-                    if (isCurrent) {
-                        window._currentPlaybackTime = Math.floor(watched);
-                        if (duration > 0) {
-                            window._currentPlaybackDuration = Math.floor(duration);
-                        }
-                        app.continueWatching.record(currentItem, season, episode, watched, duration);
-                    } else {
-                        const matchedItem = (window.appItemMap && window.appItemMap[entryId]) || app.services.findItemById(entryId) || {
-                            id: entryId,
-                            title: entry.title || 'Untitled',
-                            poster_path: entry.poster_path || '',
-                            backdrop_path: entry.backdrop_path || '',
-                            media_type: entry.type === 'tv' ? 'tv' : 'movie'
-                        };
-                        app.continueWatching.record(matchedItem, season, episode, watched, duration);
+                    window._currentPlaybackTime = Math.floor(watched);
+                    if (duration > 0) {
+                        window._currentPlaybackDuration = Math.floor(duration);
                     }
+                    app.continueWatching.record(currentItem, season, episode, watched, duration);
                 }
             }
         },
@@ -1592,10 +1585,18 @@ const app = {
             if (!localStorage.getItem('tenflix_user_explicit_muted')) {
                 localStorage.setItem('tenflix_player_muted', 'false');
             }
+            // Clean up any unplayed items that were erroneously imported from external cache
             try {
-                const savedVid = localStorage.getItem('vidLinkProgress');
-                if (savedVid && app.continueWatching && app.continueWatching.syncFromVidLink) {
-                    app.continueWatching.syncFromVidLink(JSON.parse(savedVid));
+                localStorage.removeItem('vidLinkProgress');
+                const rawCw = localStorage.getItem('tenflix_continue_watching');
+                if (rawCw) {
+                    let cwList = JSON.parse(rawCw);
+                    const bogusTitles = ['frozen fever', 'deadpool & wolverine', 'apocalypse z', 'the mentalist', 'frozen'];
+                    cwList = cwList.filter(item => {
+                        const title = (item.title || item.name || '').toLowerCase();
+                        return !bogusTitles.some(b => title.includes(b));
+                    });
+                    localStorage.setItem('tenflix_continue_watching', JSON.stringify(cwList));
                 }
             } catch (e) {}
             app.hoverCard.init();
