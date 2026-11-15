@@ -1380,17 +1380,23 @@ const app = {
             return v !== null ? parseFloat(v) : 1.0;
         },
         isMuted: () => {
-            return localStorage.getItem('tenflix_player_muted') === 'true';
+            return localStorage.getItem('tenflix_player_muted') === 'true' && localStorage.getItem('tenflix_user_explicit_muted') === 'true';
         },
         setVolume: (vol) => {
             const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 1));
             localStorage.setItem('tenflix_player_volume', clamped);
             if (clamped > 0) {
                 localStorage.setItem('tenflix_player_muted', 'false');
+                localStorage.removeItem('tenflix_user_explicit_muted');
             }
         },
         setMuted: (muted) => {
             localStorage.setItem('tenflix_player_muted', muted ? 'true' : 'false');
+            if (muted) {
+                localStorage.setItem('tenflix_user_explicit_muted', 'true');
+            } else {
+                localStorage.removeItem('tenflix_user_explicit_muted');
+            }
         },
         applyToVideo: (videoEl) => {
             if (!videoEl) return;
@@ -1399,10 +1405,19 @@ const app = {
 
             videoEl.volume = vol;
             videoEl.muted = muted;
+            if (!muted) {
+                videoEl.muted = false;
+            }
 
             videoEl.addEventListener('volumechange', () => {
                 localStorage.setItem('tenflix_player_volume', videoEl.volume);
-                localStorage.setItem('tenflix_player_muted', videoEl.muted ? 'true' : 'false');
+                if (videoEl.muted) {
+                    localStorage.setItem('tenflix_player_muted', 'true');
+                    localStorage.setItem('tenflix_user_explicit_muted', 'true');
+                } else {
+                    localStorage.setItem('tenflix_player_muted', 'false');
+                    localStorage.removeItem('tenflix_user_explicit_muted');
+                }
             });
         },
         initMessageListener: () => {
@@ -1573,6 +1588,10 @@ const app = {
         try {
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
+            // Clear any legacy automatic mute flag so audio defaults to unmuted
+            if (!localStorage.getItem('tenflix_user_explicit_muted')) {
+                localStorage.setItem('tenflix_player_muted', 'false');
+            }
             try {
                 const savedVid = localStorage.getItem('vidLinkProgress');
                 if (savedVid && app.continueWatching && app.continueWatching.syncFromVidLink) {
@@ -2084,7 +2103,7 @@ const app = {
                     <div class="video-player-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; overflow: hidden;">
                         <iframe id="main-player-iframe" src="${iframeUrl}" 
                             frameborder="0" 
-                            allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" 
+                            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; web-share" 
                             allowfullscreen 
                             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;">
                         </iframe>
@@ -2093,6 +2112,32 @@ const app = {
                     ${drawerHtml}
                     ${serverSheetHtml}
                 `;
+
+                // Dispatch unmute signals to iframe
+                const iframe = modal.querySelector('#main-player-iframe');
+                if (iframe) {
+                    const sendUnmute = () => {
+                        try {
+                            if (iframe.contentWindow) {
+                                iframe.contentWindow.postMessage({ method: 'setMute', value: false }, '*');
+                                iframe.contentWindow.postMessage({ method: 'unmute' }, '*');
+                                iframe.contentWindow.postMessage({ method: 'setVolume', value: 100 }, '*');
+                                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute' }), '*');
+                                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+                                iframe.contentWindow.postMessage({ type: 'UNMUTE' }, '*');
+                                iframe.contentWindow.postMessage({ type: 'SET_VOLUME', volume: 1 }, '*');
+                                iframe.contentWindow.postMessage({ action: 'unmute' }, '*');
+                            }
+                        } catch(e) {}
+                    };
+                    if (iframe.addEventListener) {
+                        iframe.addEventListener('load', () => {
+                            sendUnmute();
+                            setTimeout(sendUnmute, 600);
+                            setTimeout(sendUnmute, 1800);
+                        });
+                    }
+                }
             }
 
             // Inactivity auto-fade for player top bar (fades after 3.5s of no mouse/touch movement)
@@ -3356,7 +3401,7 @@ const app = {
                                                                                 style="position: absolute; top: 20px; right: 20px; z-index: 200; background: none; border: none; color: white; cursor: pointer;">
                                                                                 <i data-lucide="x" width="40" height="40"></i>
                                                                             </button>
-                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay *; fullscreen *; encrypted-media *; accelerometer *; gyroscope *; picture-in-picture *; web-share *" allowfullscreen></iframe>
+                                                                            <iframe src="${iframeUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; web-share" allowfullscreen></iframe>
                                                                             `;
                 if (window.lucide) window.lucide.createIcons();
             }
