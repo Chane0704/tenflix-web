@@ -2462,6 +2462,8 @@ const app = {
 
                         <div class="modal-body" style="padding: 20px;">
                             ${(() => {
+                                const isMobileUser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '') || (window.innerWidth <= 768);
+                                if (!isMobileUser) return '';
                                 const isDnsDismissed = localStorage.getItem('tenflix_dns_tip_dismissed') === 'true';
                                 return `
                                     <div class="modal-dns-tip-banner ${isDnsDismissed ? 'hidden' : ''}" id="modal-dns-tip-banner">

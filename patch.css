@@ -2455,6 +2455,14 @@ button.close-player:hover {
 /* ==========================================================
    MOBILE AD-FREE DNS TIP BANNER (DETAILS MODAL)
    ========================================================== */
+/* Hide on PC / Desktop */
+@media (min-width: 769px) {
+    .modal-dns-tip-banner,
+    .dns-tip-reopen-wrap {
+        display: none !important;
+    }
+}
+
 .modal-dns-tip-banner {
     background: linear-gradient(135deg, rgba(229, 9, 20, 0.12) 0%, rgba(24, 24, 30, 0.95) 100%) !important;
     border: 1px solid rgba(229, 9, 20, 0.35) !important;
