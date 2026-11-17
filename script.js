@@ -2406,13 +2406,15 @@ const app = {
                             <i data-lucide="x"></i>
                         </div>
                         
-                        <div class="modal-hero" style="background-image: url('${imgUrl}'); height: 400px; background-size: cover; background-position: center; position: relative;">
-                            <div class="hero-overlay" style="background: linear-gradient(to top, #181818, transparent);"></div>
+                        <div class="modal-hero">
+                            <div class="modal-hero-backdrop" style="background-image: url('${imgUrl}');">
+                                <div class="hero-overlay"></div>
+                            </div>
                             
-                            <div class="modal-hero-content" style="position: absolute; bottom: 20px; left: 20px; right: 20px; z-index: 10;">
-                                <h1 style="font-size: 3rem; margin-bottom: 10px; line-height: 1.1; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-weight: bold;">${item.title || item.name}</h1>
+                            <div class="modal-hero-content">
+                                <h1 class="modal-title">${item.title || item.name}</h1>
                                 
-                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 0.9rem; color: #ccc;">
+                                <div class="modal-meta-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 0.9rem; color: #ccc;">
                                     <span style="color: #00a8e1; font-weight: bold; display: flex; align-items: center; gap: 4px;"><i data-lucide="check-circle-2" style="width:14px; height:14px;"></i> Included with Tenflix</span>
                                     <span>${item.release_date || item.first_air_date || '2024'}</span>
                                     <span style="border: 1px solid #777; padding: 0 4px; font-size: 0.7rem; border-radius: 2px;">HD</span>
@@ -2451,9 +2453,6 @@ const app = {
                                     ${isCustom ? `
                                         <button class="btn btn-secondary" onclick="app.handlers.editItem('${item.id}')">
                                             <i data-lucide="edit-2"></i> Edit
-                                        </button>
-                                        <button class="btn btn-secondary" style="background-color: #E50914; border:none; margin-left: auto;" onclick="app.handlers.deleteItem('${item.id}')">
-                                            <i data-lucide="trash-2"></i> Delete
                                         </button>
                                     ` : ''}
                                 </div>
