@@ -1,0 +1,372 @@
+{
+  "id": "emily_in_paris",
+  "title": "Emily in Paris",
+  "description": "New passions. New fashions. New Emily? A plucky American marketing whiz spreads her wings in life and love after landing her dream job in Paris.",
+  "genre": "Drama, Comedy",
+  "poster_path": "https://media.themoviedb.org/t/p/original/c0bkO416OU7YGdOFktk45H8REgL.jpg",
+  "backdrop_path": "https://media.themoviedb.org/t/p/original/jXTZaHarR9TZiMoQwiQWsGYXqnS.jpg",
+  "is_custom": true,
+  "episodes": [
+    {
+      "season": 1,
+      "title": "S1 E1 - Emily in Paris",
+      "overview": "Emily brings her can-do American attitude and fresh ideas to her new Paris office, but her inability to speak French turns out to be a major faux pas.",
+      "runtime": "30",
+      "video_url": "https://drive.google.com/file/d/1NDywaF8bUF6jfwhw1O23UuHSVwbZI5gX/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/xXQKZgTBynnYWn7ygOk7RWh9Sko.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E2 - Masculin Féminin",
+      "overview": "Emily navigates the intricacies of French amour when her enthusiasm at a work soirée impresses a flirtatious — and married — client.",
+      "runtime": "27",
+      "video_url": "https://drive.google.com/file/d/1wp1jVFnRF6vj-Rc503Ni2eN8mxCAvXKQ/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/9TE1XQF8eQJUJkrlmyEeWtypUC3.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E3 - Sexy or Sexist",
+      "overview": "Emily voices her concerns over a risqué new ad campaign while juggling plumbing problems, language lessons and disagreeable co-workers.",
+      "runtime": "27",
+      "video_url": "https://drive.google.com/file/d/1rn0Tck6RQWUP_IrfteA-2k6q2BU_TlOm/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/1IEDLPnuTgrYbJRzyu2hQSGRO4K.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E4 - A Kiss Is Just a Kiss",
+      "overview": "A sweet new acquaintance helps Emily sniff out a potentially huge new client, but a messy workplace liaison endangers the deal.",
+      "runtime": "28",
+      "video_url": "https://drive.google.com/file/d/1nVA0WRCmYPRCqg8zA5IiXzMl4_cTZ4-q/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/mIMn71VYixR1CTMJByh1AXqNCcG.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E5 - Faux Amis",
+      "overview": "Emily discovers that her growing social media following opens doors in Paris, and a friendly night out on the town leads to a tête-à-tête with Gabriel.",
+      "runtime": "27",
+      "video_url": "https://drive.google.com/file/d/1NExBdy1zwaFvKeZb-BRkDGrRWjDnnwrA/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/n00dC6eF9U8MNX4rGojHTcobj0o.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E6 - Ringarde",
+      "overview": "When a meeting with an iconic couture house unravels over a basic mistake, Emily finds comfort in the company of a seemingly charming professor.",
+      "runtime": "30",
+      "video_url": "https://drive.google.com/file/d/101uUVox57ZsDv079EBX2cjk4xEJo7NIQ/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/xXfem9qMwaxnayx78yBStEysnt4.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E7 - French Ending",
+      "overview": "After agreeing to watch over an American actress at a chic red-carpet event, Emily finds her night — and her famous charge — spinning out of control.",
+      "runtime": "29",
+      "video_url": "https://drive.google.com/file/d/1eY8ceHr021voZY1gUh6YE5BcR3Fz2PDN/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/5NBDjHEKEXMuUxJlVf5r9hzYm3E.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E8 - Family Affair",
+      "overview": "Emily's weekend trip to a friend's château fizzles like day-old champagne. Back in Paris, Mindy's reluctant meet-up with old friends ends on a high note.",
+      "runtime": "30",
+      "video_url": "https://drive.google.com/file/d/1eGO0Ejp6D-JWUfPtQg9Ab66PZL6L74yj/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/wfayeln7TwG6BDxArGJtKwuL67l.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E9 - An American Auction in Paris",
+      "overview": "A charity auction, a donated gown and an avant-garde design duo add up to trouble for Emily as she catches the eye of Pierre Cadault's heir apparent.",
+      "runtime": "25",
+      "video_url": "https://drive.google.com/file/d/1k94prdO-koTIy2HGTLl2R2mSuxY3oVUb/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/7dpXIVCN6ha3Ftad16Tm8jddI92.jpg"
+    },
+    {
+      "season": 1,
+      "title": "S1 E10 - Cancel Couture",
+      "overview": "With her job on the line over a Fashion Week debacle, Emily scrambles to devise a new plan while preparing to say adieu to a good friend.",
+      "runtime": "35",
+      "video_url": "https://drive.google.com/file/d/1tJS6MMJOOKMkfV66nfHYOtY6Q37VeZ3T/view?usp=drive_link",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/4XdKG9BHVxQ53CRCy4TdCyOlSiZ.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E1 - Voulez-Vous Coucher Avec Moi?",
+      "overview": "Feeling très guilty over her encounter with Gabriel, Emily decides to move on with a romantic weekend away. Mindy's new job turns out to be a total drag.",
+      "runtime": "27",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/cs9hmdG9w6w5OkvcFKVOj5AiAZ9.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E2 - Do You Know the Way to St. Tropez?",
+      "overview": "Working on a weekend? Quelle horreur. Even in Saint-Tropez, Emily can't leave her job behind, but after a social media gaffe, she may not have a choice.",
+      "runtime": "29",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/iZEPz9MBEy9Zoc11NvNCWuElvVC.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E3 - Bon Anniversaire!",
+      "overview": "While planning a dinner party for her birthday, Emily gets steamy with Camille's friends and accepts Gabriel's helping hand with the menu.",
+      "runtime": "28",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/8ojOKp4wZhFU2Qv4eV5HvAboqzs.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E4 - Jules and Em",
+      "overview": "When Emily's personal drama impacts her work at Savoir, it pushes her to focus harder on her French lessons. Mindy faces off with a mime at her new gig.",
+      "runtime": "35",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/yK7niDJXEdr6AKLimgV8ZpdWQvy.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E5 - An Englishman in Paris",
+      "overview": "Emily tries to practice speaking en Français with a bored classmate while juggling Gabriel's restaurant debut, a Chopard soirée and a seething Camille.",
+      "runtime": "29",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/c6lRYTvJR3o6oU0DabE38EBSUIu.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E6 - Boiling Point",
+      "overview": "Tempers flare on the opening night of Chez Lavaux. Emily feels Alfie has misjudged her style and joie de vivre. Sylvie catches the eye of a photographer.",
+      "runtime": "31",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/ykomsIPlGq3uhvadIpY0eoToa0J.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E7 - The Cook, the Thief, Her Ghost and His Lover",
+      "overview": "Emily finally establishes a rapport with Alfie, but a borrowed jacket makes things beaucoup awkward. Sylvie bristles over Savoir's new American client.",
+      "runtime": "30",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/qxumKipIFtni0AYgg4B2uu9nkHB.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E8 - Champagne Problems",
+      "overview": "After a suspiciously decadent dinner with Alfie, Emily heads to Camille's family chateau, where more than just the tops of Champére bottles pop off.",
+      "runtime": "27",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/tKU7Okh2g7XrS7rBMoOy67N3sWn.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E9 - Scents & Sensibility",
+      "overview": "Emily's boss from Chicago digs deeper into Savoir's accounts, putting Sylvie on edge. Mindy's budding romance suffers a blow when her secret comes out.",
+      "runtime": "30",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/8ZZs4WRSoYV7i8OrDk6Vsjk9Anc.jpg"
+    },
+    {
+      "season": 2,
+      "title": "S2 E10 - French Revolution",
+      "overview": "Emily finds her loyalties torn when a fashion show at Versailles sets the stage for a showdown that could determine Savoir's future — and her own.",
+      "runtime": "39",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/4Z2SajfuraGexYgXkPOhC9MGuKV.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E1 - I Have Two Lovers",
+      "overview": "An impromptu coiffure change is Emily's only quick decision as she drags her heels over choosing a path forward for her career and her love life.",
+      "runtime": "36",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/dx8qs7IutNjlEyhCY3QaFuTKbiG.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E2 - What's It All About...",
+      "overview": "With Savoir descending into chaos, Emily reaches out to a former colleague for help. But an attempted détente during a glitzy gala quickly goes south.",
+      "runtime": "33",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/cKOy9t5woCV4KfHVXZsmsBWkUeq.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E3 - Coo D'état",
+      "overview": "Sylvie turns on the charm when working conditions deteriorate, Mindy gets up to risqué business backstage, and Emily makes up her mind about what's next.",
+      "runtime": "33",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/o6WCmhf4o8c1JStBwH3SeNWmXIF.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E4 - Live from Paris, It's Emily Cooper",
+      "overview": "While playing tourist in Paris, Emily scores a side hustle that puts her language lessons to the test. Camille hits it off with an intriguing artist.",
+      "runtime": "32",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/9c1DwuovMobFeeAL1wLlCj9S533.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E5 - Ooo La La Liste",
+      "overview": "Emily tries to use her influence to land Sylvie a spot on a who's-who list, Mindy bumps into a well-connected old friend, and Alfie throws a party.",
+      "runtime": "33",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/dIDdFNnqMU3ANoUBIIKHbPsD5iK.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E6 - Ex-en-Provence",
+      "overview": "A luxury car event takes Emily and her crew to a chateau in Provence, where lavender fields, a lavish meal and a surprise guest set off romantic sparks.",
+      "runtime": "35",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/hA6ROKC68n3ufYBD1ZptneAc4tE.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E7 - How to Lose a Designer in 10 Days",
+      "overview": "As a double dose of fashion designer drama strikes Agence Grateau, Mindy asks Emily and Gabriel for backup after she receives an enigmatic invitation.",
+      "runtime": "27",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/9lCi25jsazi7FaLN3PvHny5gB5M.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E8 - Fashion Victim",
+      "overview": "Things look touch-and-go for Pierre as rumors swirl around his store opening. Sylvie reaches out to an old acquaintance. Emily supports a glum Gabriel.",
+      "runtime": "27",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/aLUd0O8Kxat3fBtZ3TwD3bDLK3f.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E9 - Love Is in the Air",
+      "overview": "Already feeling unsure about where she stands with Alfie, Emily finds herself on shaky ground with Mindy's boyfriend. Gabriel focuses on his future.",
+      "runtime": "37",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/lEbEdQoYyYlPhM7bYVYKjyK6Hbr.jpg"
+    },
+    {
+      "season": 3,
+      "title": "S3 E10 - Charade",
+      "overview": "In between undermining a colleague and helping Gabriel achieve his culinary dream, Emily attends a celebration in Champagne that takes a shocking turn.",
+      "runtime": "38",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/5JRhlDYW63z1N8H3Hy0CysqFcac.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E1 - Break Point",
+      "overview": "One wedding disaster and a viral video later, Emily scrambles to get both her personal and professional affairs in order before the French Open.",
+      "runtime": "33",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/jjpn557IHDYqQKBuK5EhbHCQVsM.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E2 - Love on the Run",
+      "overview": "Worry turns to anger after Emily spills a big secret to Gabriel. Mindy finds a skeleton in JVMA's couture closet. Camille throws Monet at her problems.",
+      "runtime": "35",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/9fmEOw3zdYa5OVOjZaHC0zOituW.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E3 - Masquerade",
+      "overview": "As Gabriel's living situation turns très compliqué, Emily plans a lavish masquerade ball for Maison Lavaux, where feelings are shared — and choices made.",
+      "runtime": "33",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/ikH9Uvi3duDV8tJIyaiFjx5Rvyi.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E4 - The Grey Area",
+      "overview": "Emily seeks a private spot for a romantic rendezvous, Sylvie calls in a favor for Laurent's club opening, and Mindy's relationship hits an impasse.",
+      "runtime": "34",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/fhB5VuOLzDS3AJjVPIYhkXELgt3.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E5 - Trompe l'oeil",
+      "overview": "Looks prove deceiving as Agence Grateau hypes a skincare line and Gabriel's restaurant chases a Michelin star. Trouble brews on Camille's shopping trip.",
+      "runtime": "35",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/zkLroLy3kYxMxeWtBBN8rh3bJE.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E6 - Last Christmas",
+      "overview": "After a last-minute change in Christmas plans, Emily detours to a ski chalet in the French Alps, where a day on the slopes takes a bad turn.",
+      "runtime": "39",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/weXskv1u94ZqDMsg6y5q9rmPjQm.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E7 - Lost in Translation",
+      "overview": "Emily acquires a protege courtesy of Sylvie — and experiences a communication breakdown with Gabriel. Mindy takes a top-down approach to her new gig.",
+      "runtime": "38",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/6vk09B7stlC4deC73Xn0BqoUJ0F.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E8 - Back on the Crazy Horse",
+      "overview": "Emily's dashing rescuer reappears and extends an enticing invitation. Mindy teases her performance at Crazy Horse. Genevieve overstays her welcome.",
+      "runtime": "31",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/bWM87JN0YnLYDEgaWnpZBguz7i7.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E9 - Roman Holiday",
+      "overview": "As a new neighbor moves in, Emily does the unthinkable and takes a vacation day, saying au revoir to work — and ciao to a charming tour guide in Rome.",
+      "runtime": "32",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/eDocOzeQBFXjpTR4pY6WwNBPmpB.jpg"
+    },
+    {
+      "season": 4,
+      "title": "S4 E10 - All Roads Lead to Rome",
+      "overview": "Mixing business with pleasure? Not how Emily wants to spend her time in Italy. The stars align for Gabriel, and Mindy finds inspiration among the ruins.",
+      "runtime": "46",
+      "video_url": "",
+      "caption_url": "",
+      "still_path": "https://media.themoviedb.org/t/p/original/qZko5RaH3wI7ZbFuN8JPv10EYpa.jpg"
+    }
+  ],
+  "video_url": ""
+}

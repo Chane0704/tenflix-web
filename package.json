@@ -3,10 +3,8 @@
     "version": "1.0.0",
     "description": "A static Netflix clone",
     "scripts": {
-        "start": "serve src",
+        "start": "npx -y serve .",
         "build": "echo 'No build step'"
     },
-    "dependencies": {
-        "serve": "^14.2.0"
-    }
+    "dependencies": {}
 }
