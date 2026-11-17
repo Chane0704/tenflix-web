@@ -1,3 +1,4 @@
+const TENFLIX_POLICY_VERSION = "2026.11.18";
 const app = {
     state: {
         customContent: [],
@@ -1718,6 +1719,7 @@ const app = {
         }, 2500);
 
         try {
+            app.handlers.checkPolicyConsent();
             app.handlers.checkCookieConsent();
             app.audio.initMessageListener();
             // Clear any legacy automatic mute flag so audio defaults to unmuted
@@ -2990,28 +2992,31 @@ const app = {
                         <p>Tenflix collects only the minimum necessary data to provide media functionality:</p>
                         <ul>
                             <li><strong>Local Browser Storage:</strong> Custom media URLs, video titles, and episode configurations you enter are stored locally in your browser's IndexedDB and localStorage.</li>
-                            <li><strong>User Preferences:</strong> Audio volume, active view tab, and cookie consent preferences.</li>
+                            <li><strong>User Preferences:</strong> Audio volume, active view tab, cookie preferences, and policy acceptance records.</li>
                             <li><strong>Search Queries:</strong> Queries typed into the search bar are sent directly to the TMDB API to retrieve live movie/show posters and metadata. We do not store or profile your search queries.</li>
                         </ul>
 
-                        <h3>2. Third-Party Services</h3>
-                        <p>Tenflix interacts with the following external services solely for media discovery and playback:</p>
+                        <h3>2. Third-Party Services & Embedded Video Players</h3>
+                        <p>Tenflix interacts with external services solely for media discovery and playback:</p>
                         <ul>
                             <li><strong>The Movie Database (TMDB):</strong> Fetches metadata, posters, and overviews. TMDB does not receive your personal identity.</li>
-                            <li><strong>Embedded Players:</strong> Streams requested from independent video services operate within isolated sandboxed iframes.</li>
+                            <li><strong>Third-Party Embedded Players:</strong> Video streams requested from independent third-party servers operate within sandboxed iframes. While Tenflix operates with zero proprietary ad trackers, third-party embed hosts maintain their own independent privacy, cookie, and advertising policies over which Tenflix exercises no control.</li>
                         </ul>
 
-                        <h3>3. GDPR & CCPA Compliance</h3>
+                        <h3>3. User Privacy Controls & Ad-Filtering Recommendations</h3>
+                        <p>To protect your privacy against unwanted third-party embeds and external popups, Tenflix provides recommended private DNS configurations (such as AdGuard Private DNS <code>dns.adguard-dns.com</code>) and direct Google Drive playback options where available.</p>
+
+                        <h3>4. GDPR & CCPA Compliance</h3>
                         <p>Under European GDPR and California CCPA regulations, you have full ownership over your data:</p>
                         <ul>
                             <li><strong>Right of Access & Portability:</strong> You can export your entire media library as JSON in the Settings tab.</li>
                             <li><strong>Right to Erasure:</strong> You can permanently wipe all locally stored data in one click using the <a onclick="app.handlers.switchLegalTab('deletion')" style="color:#e50914;cursor:pointer;text-decoration:underline;">Data Deletion tab</a>.</li>
                         </ul>
 
-                        <h3>4. Child Privacy (COPPA)</h3>
+                        <h3>5. Child Privacy (COPPA)</h3>
                         <p>Tenflix is intended for general audiences aged 13 and above. We do not knowingly collect personal information from children under 13.</p>
 
-                        <h3>5. Contact Information</h3>
+                        <h3>6. Contact Information</h3>
                         <p>For privacy inquiries or data rights requests, contact our designated privacy officer at <a href="mailto:privacy@tenflix.surge.sh" style="color:#e50914;">privacy@tenflix.surge.sh</a>.</p>
                     </div>
                 `;
@@ -3019,19 +3024,43 @@ const app = {
                 bodyHtml = `
                     <div class="legal-section">
                         <h2>Terms of Service</h2>
-                        <p><strong>Last Updated: November 2026</strong></p>
+                        <p><strong>Last Updated & Effective Date: November 18, 2026 (Version 2026.11.18)</strong></p>
+
+                        <div class="legal-alert" style="border-left-color: #e50914;">
+                            <strong>Mandatory Acceptance:</strong> Access to and continued use of Tenflix requires unconditional acceptance of these Terms of Service. If you do not agree to these terms, you must discontinue use immediately.
+                        </div>
 
                         <h3>1. Educational & Portfolio License</h3>
-                        <p>Tenflix is an open-source demonstration application built for personal and portfolio media organization purposes. It is provided free of charge on an "AS IS" basis without warranties of any kind.</p>
+                        <p>Tenflix is an open-source demonstration application built for personal and portfolio media organization purposes. It is provided free of charge on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, either express or implied.</p>
 
-                        <h3>2. Acceptable Use</h3>
-                        <p>You agree not to use Tenflix for any unlawful purpose. You are solely responsible for ensuring that any personal video files or external URLs you import into your private browser library comply with applicable copyright and intellectual property laws.</p>
+                        <h3>2. Platform Architecture & Third-Party Video Hosts</h3>
+                        <p>Tenflix acts strictly as an indexing client and organizational interface. <strong>Tenflix does not host, upload, store, encode, or distribute video media files on its servers.</strong> All media streams (with the exception of user-provided personal drive links) are served and delivered directly from independent, third-party external embed providers over which Tenflix exercises no operational or administrative control.</p>
 
-                        <h3>3. Intellectual Property</h3>
-                        <p>Tenflix, its logo, interface styling, and original code are protected under open-source software licenses. Movie titles, posters, trademarks, and artwork displayed via TMDB belong to their respective copyright holders.</p>
+                        <h3>3. Advertising Disclaimer & No Guarantee of Ad-Free Experience</h3>
+                        <p>While Tenflix actively implements optimizations to enhance user comfort (such as ad-blocking sandbox attributes, DNS recommendations, and direct Drive links), <strong>external third-party streaming servers may display external advertisements, sponsor pop-ups, redirects, or banners beyond our control</strong>. Tenflix <strong>CANNOT AND DOES NOT GUARANTEE A 100% AD-FREE EXPERIENCE</strong> on any third-party streaming server.</p>
 
-                        <h3>4. Limitation of Liability</h3>
-                        <p>In no event shall Tenflix, its authors, or contributors be liable for any indirect, incidental, or consequential damages resulting from the use or inability to use this service.</p>
+                        <h3>4. Assumption of Risk & User Responsibility</h3>
+                        <p>By using Tenflix and choosing to initiate any video stream, you explicitly acknowledge and agree that:</p>
+                        <ul>
+                            <li>You interact with any third-party embeds, external links, or external advertisements at your own sole discretion and risk.</li>
+                            <li>Tenflix is not responsible or liable for any content, advertising, products, or materials on or available from external servers or websites.</li>
+                            <li>You are solely responsible for ensuring that your viewing activities comply with all applicable local, national, and international laws.</li>
+                        </ul>
+
+                        <h3>5. Limitation of Liability & Indemnification</h3>
+                        <p>To the fullest extent permitted by applicable law, in no event shall Tenflix, its authors, developers, maintainers, contributors, or host providers be liable for any direct, indirect, incidental, special, punitive, or consequential damages, claims, losses, or legal liabilities of any kind resulting from:</p>
+                        <ul>
+                            <li>Your access to, use of, or inability to access or use the application;</li>
+                            <li>Any third-party video streams, embedded players, external links, or external advertising;</li>
+                            <li>Any bugs, viruses, Trojan horses, or harmful code transmitted through third-party services.</li>
+                        </ul>
+                        <p>You agree to indemnify, defend, and hold harmless Tenflix and its maintainers from and against any and all claims, liabilities, damages, and expenses arising out of your violation of these Terms.</p>
+
+                        <h3>6. Intellectual Property</h3>
+                        <p>Tenflix, its original code, and interface styling are protected under open-source software licenses. Movie titles, posters, trademarks, and artwork displayed via TMDB belong to their respective copyright holders.</p>
+
+                        <h3>7. Policy Updates & Periodic Consent</h3>
+                        <p>We reserve the right to modify these Terms of Service and associated policies at any time. Material updates will be presented via an on-screen consent gate requiring active acceptance before continued access is granted.</p>
                     </div>
                 `;
             } else if (activeTab === 'refund') {
@@ -3178,6 +3207,43 @@ const app = {
             if (banner) {
                 banner.style.animation = 'slideUp 0.2s reverse forwards';
                 setTimeout(() => banner.classList.add('hidden'), 200);
+            }
+        },
+
+        checkPolicyConsent: () => {
+            try {
+                const acceptedVersion = localStorage.getItem('tenflix_policy_accepted_version');
+                const modal = document.getElementById('policy-consent-modal');
+                if (acceptedVersion !== TENFLIX_POLICY_VERSION) {
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                        document.documentElement.classList.add('policy-gate-active');
+                        document.body.classList.add('policy-gate-active');
+                        if (window.lucide && lucide.createIcons) lucide.createIcons();
+                    }
+                } else {
+                    if (modal) {
+                        modal.classList.add('hidden');
+                    }
+                    document.documentElement.classList.remove('policy-gate-active');
+                    document.body.classList.remove('policy-gate-active');
+                }
+            } catch (e) {
+                console.warn('Policy consent check failed:', e);
+            }
+        },
+
+        acceptPolicyConsent: () => {
+            try {
+                localStorage.setItem('tenflix_policy_accepted_version', TENFLIX_POLICY_VERSION);
+                localStorage.setItem('tenflix_policy_accepted_date', new Date().toISOString());
+                const modal = document.getElementById('policy-consent-modal');
+                if (modal) modal.classList.add('hidden');
+                document.documentElement.classList.remove('policy-gate-active');
+                document.body.classList.remove('policy-gate-active');
+                if (window.lucide && lucide.createIcons) lucide.createIcons();
+            } catch (e) {
+                console.error('Failed to save policy consent:', e);
             }
         },
 
@@ -5468,6 +5534,18 @@ const app = {
                 }
             });
         }
+    }
+};
+
+app.consent = {
+    version: TENFLIX_POLICY_VERSION,
+    check: () => app.handlers.checkPolicyConsent(),
+    accept: () => app.handlers.acceptPolicyConsent(),
+    reviewTerms: () => {
+        app.handlers.openLegal('terms');
+    },
+    reviewPrivacy: () => {
+        app.handlers.openLegal('privacy');
     }
 };
 
