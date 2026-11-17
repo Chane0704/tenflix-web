@@ -2399,6 +2399,23 @@ const app = {
                 }
                 const currentSeason = seasons.length > 0 ? seasons[0] : 1;
 
+                // Check if title or any of its episodes has Google Drive storage
+                const targetItem = (app.services && app.services.findItemById ? app.services.findItemById(item.id) : null) || item;
+                const hasDrive = Boolean(
+                    (item && typeof item.video_url === 'string' && item.video_url.includes('drive.google.com')) ||
+                    (item && Array.isArray(item.episodes) && item.episodes.some(e => e && typeof e.video_url === 'string' && e.video_url.includes('drive.google.com'))) ||
+                    (targetItem && typeof targetItem.video_url === 'string' && targetItem.video_url.includes('drive.google.com')) ||
+                    (targetItem && Array.isArray(targetItem.episodes) && targetItem.episodes.some(e => e && typeof e.video_url === 'string' && e.video_url.includes('drive.google.com')))
+                );
+                const directDriveLink = (item && typeof item.video_url === 'string' && item.video_url.includes('drive.google.com')) 
+                    ? item.video_url 
+                    : (targetItem && typeof targetItem.video_url === 'string' && targetItem.video_url.includes('drive.google.com'))
+                        ? targetItem.video_url
+                        : null;
+                const driveDownloadUrl = directDriveLink
+                    ? directDriveLink.replace('/preview', '/view')
+                    : "https://drive.google.com/drive/folders/1jx3Drfqd9dDaElb0AlR3ocsRKwyiIP4b?usp=drive_link";
+
                 // Build HTML
                 modal.innerHTML = `
                     <div class="modal-content">
@@ -2446,9 +2463,11 @@ const app = {
                                         </button>
                                     ` : ''}
                                     
-                                    <a href="https://drive.google.com/drive/folders/1jx3Drfqd9dDaElb0AlR3ocsRKwyiIP4b?usp=drive_link" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; color: white;">
-                                        <i data-lucide="download"></i> Download
-                                    </a>
+                                    ${hasDrive ? `
+                                        <a href="${driveDownloadUrl}" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; color: white;" title="Download from Google Drive">
+                                            <i data-lucide="download"></i> Download
+                                        </a>
+                                    ` : ''}
                                     
                                     ${isCustom ? `
                                         <button class="btn btn-secondary" onclick="app.handlers.editItem('${item.id}')">
