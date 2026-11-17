@@ -2461,6 +2461,81 @@ const app = {
                         </div>
 
                         <div class="modal-body" style="padding: 20px;">
+                            ${(() => {
+                                const isDnsDismissed = localStorage.getItem('tenflix_dns_tip_dismissed') === 'true';
+                                return `
+                                    <div class="modal-dns-tip-banner ${isDnsDismissed ? 'hidden' : ''}" id="modal-dns-tip-banner">
+                                        <div class="dns-tip-main">
+                                            <div class="dns-tip-icon">
+                                                <i data-lucide="shield-check"></i>
+                                            </div>
+                                            <div class="dns-tip-content">
+                                                <div class="dns-tip-header-row">
+                                                    <span class="dns-tip-badge">📱 Mobile Ad-Free Tip</span>
+                                                    <span class="dns-tip-summary">Block 100% of popup ads:</span>
+                                                </div>
+                                                <div class="dns-tip-action-row">
+                                                    <span class="dns-tip-label">Set Private DNS to:</span>
+                                                    <button type="button" class="dns-chip-btn" onclick="app.handlers.copyDnsHostname(event, this)" title="Click to copy hostname">
+                                                        <code>dns.adguard-dns.com</code>
+                                                        <i data-lucide="copy" class="dns-copy-icon"></i>
+                                                    </button>
+                                                    <button type="button" class="dns-guide-link-btn" onclick="app.handlers.toggleDnsGuide(event)">
+                                                        <span id="dns-guide-btn-text">How to do it</span>
+                                                        <i data-lucide="chevron-down" id="dns-guide-chevron"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="dns-dismiss-btn" onclick="app.handlers.dismissDnsTip(event)" title="Dismiss tip">
+                                                <i data-lucide="x"></i>
+                                            </button>
+                                        </div>
+
+                                        <div id="dns-guide-drawer" class="dns-guide-drawer hidden">
+                                            <div class="dns-guide-inner">
+                                                <div class="dns-guide-block">
+                                                    <div class="dns-guide-block-title">
+                                                        <i data-lucide="smartphone"></i> <strong>Android (10-Second Setup • No Apps Needed)</strong>
+                                                    </div>
+                                                    <ol class="dns-guide-steps">
+                                                        <li>Open your phone's <strong>Settings</strong> app</li>
+                                                        <li>Tap <strong>Network &amp; internet</strong> (or <strong>Connections</strong> &rarr; <strong>More connection settings</strong>)</li>
+                                                        <li>Tap <strong>Private DNS</strong> (usually set to <em>Automatic</em> or <em>Off</em>)</li>
+                                                        <li>Choose <strong>Private DNS provider hostname</strong> and enter:
+                                                            <div class="dns-copy-field">
+                                                                <input type="text" value="dns.adguard-dns.com" readonly id="dns-hostname-input">
+                                                                <button type="button" class="dns-copy-action-btn" onclick="app.handlers.copyDnsHostname(event, this)">
+                                                                    <i data-lucide="copy"></i> Copy
+                                                                </button>
+                                                            </div>
+                                                        </li>
+                                                        <li>Tap <strong>Save</strong>. All mobile popups and betting ads are now blocked!</li>
+                                                    </ol>
+                                                </div>
+                                                <div class="dns-guide-block" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                                    <div class="dns-guide-block-title">
+                                                        <i data-lucide="compass"></i> <strong>iPhone &amp; One-Click Alternative</strong>
+                                                    </div>
+                                                    <p class="dns-guide-note">
+                                                        If you're on iPhone or don't want to change DNS settings, simply open Tenflix in <strong>Brave Browser</strong> (free on Google Play / App Store) — it blocks all iframe popups automatically.
+                                                    </p>
+                                                </div>
+                                                <div style="display:flex; justify-content:flex-end; margin-top: 8px;">
+                                                    <button type="button" class="dns-collapse-btn" onclick="app.handlers.toggleDnsGuide(event)">
+                                                        Close Guide &uarr;
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dns-tip-reopen-wrap ${!isDnsDismissed ? 'hidden' : ''}" id="dns-tip-reopen-wrap">
+                                        <button type="button" class="dns-reopen-btn" onclick="app.handlers.reopenDnsTip(event)">
+                                            <i data-lucide="shield-check"></i> 📱 Mobile Ad-Free Setup Tip
+                                        </button>
+                                    </div>
+                                `;
+                            })()}
+
                             <div class="modal-tabs">
                                 ${hasEpisodes ? `<button class="tab-btn active" onclick="app.handlers.switchTab(this, 'episodes')">EPISODES</button>` : ''}
                                 <button class="tab-btn ${!hasEpisodes ? 'active' : ''}" onclick="app.handlers.switchTab(this, 'overview')">Overview</button>
@@ -2519,6 +2594,111 @@ const app = {
         }
     },
     handlers: {
+        copyDnsHostname: (e, btn) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const textToCopy = 'dns.adguard-dns.com';
+            const doFeedback = (targetBtn) => {
+                if (!targetBtn) return;
+                const origHtml = targetBtn.innerHTML;
+                targetBtn.innerHTML = '<i data-lucide="check" style="width:12px; height:12px; display:inline; color:#00d26a;"></i> <span style="color:#00d26a; font-weight:700;">Copied!</span>';
+                if (window.lucide) window.lucide.createIcons();
+                setTimeout(() => {
+                    targetBtn.innerHTML = origHtml;
+                    if (window.lucide) window.lucide.createIcons();
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    doFeedback(btn);
+                }).catch(() => {
+                    app.handlers.fallbackCopy(textToCopy, btn, doFeedback);
+                });
+            } else {
+                app.handlers.fallbackCopy(textToCopy, btn, doFeedback);
+            }
+        },
+
+        fallbackCopy: (text, btn, callback) => {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                if (callback) callback(btn);
+            } catch (err) {
+                prompt("Copy this DNS hostname:", text);
+            }
+        },
+
+        toggleDnsGuide: (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const drawer = document.getElementById('dns-guide-drawer');
+            const btnText = document.getElementById('dns-guide-btn-text');
+            const chevron = document.getElementById('dns-guide-chevron');
+            if (!drawer) return;
+            const isHidden = drawer.classList.contains('hidden');
+            if (isHidden) {
+                drawer.classList.remove('hidden');
+                if (btnText) btnText.textContent = 'Hide guide';
+                if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
+            } else {
+                drawer.classList.add('hidden');
+                if (btnText) btnText.textContent = 'How to do it';
+                if (chevron) chevron.setAttribute('data-lucide', 'chevron-down');
+            }
+            if (window.lucide) window.lucide.createIcons();
+        },
+
+        dismissDnsTip: (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            try {
+                localStorage.setItem('tenflix_dns_tip_dismissed', 'true');
+            } catch (err) {}
+            const banner = document.getElementById('modal-dns-tip-banner');
+            if (banner) {
+                banner.style.opacity = '0';
+                banner.style.transform = 'translateY(-6px)';
+                setTimeout(() => {
+                    banner.classList.add('hidden');
+                    const reopen = document.getElementById('dns-tip-reopen-wrap');
+                    if (reopen) reopen.classList.remove('hidden');
+                    if (window.lucide) window.lucide.createIcons();
+                }, 250);
+            }
+        },
+
+        reopenDnsTip: (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            try {
+                localStorage.removeItem('tenflix_dns_tip_dismissed');
+            } catch (err) {}
+            const banner = document.getElementById('modal-dns-tip-banner');
+            const reopen = document.getElementById('dns-tip-reopen-wrap');
+            if (reopen) reopen.classList.add('hidden');
+            if (banner) {
+                banner.classList.remove('hidden');
+                banner.style.opacity = '1';
+                banner.style.transform = 'translateY(0)';
+            }
+            if (window.lucide) window.lucide.createIcons();
+        },
         openSearch: (e) => {
             if (e) {
                 e.preventDefault();
