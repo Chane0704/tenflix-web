@@ -1,7 +1,12 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><title>TenFlix</title><meta name="referrer" content="strict-origin-when-cross-origin"><meta name="theme-color" content="#0e1016"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="msapplication-navbutton-color" content="#0e1016"><meta name="apple-mobile-web-app-title" content="TenFlix"><meta name="application-name" content="TenFlix"><link rel="manifest" href="manifest.json"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="shortcut icon" href="favicon.png" type="image/png"><link rel="stylesheet" href="style.css?v=VIDLINK_SERVER1_RESTORED_V29"><style>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><title>TenFlix</title><meta name="referrer" content="strict-origin-when-cross-origin"><meta name="theme-color" content="#0e1016"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1016"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#0e1016"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="msapplication-navbutton-color" content="#0e1016"><meta name="apple-mobile-web-app-title" content="TenFlix"><meta name="application-name" content="TenFlix"><link rel="manifest" href="manifest.json?v=NAV_COLOR_FIX_V40"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="shortcut icon" href="favicon.png" type="image/png"><link rel="stylesheet" href="style.css?v=VIDLINK_SERVER1_RESTORED_V29"><style>
         /* Critical CSS for loading state */
+        :root {
+            --nav-bg: #0e1016;
+            --bottom-bar-bg: var(--nav-bg);
+        }
         body {
             background-color: #0e1016;
+            background-color: var(--nav-bg, #0e1016);
             color: white;
             margin: 0;
             font-family: sans-serif;
@@ -10,8 +15,9 @@
         // PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('./sw.js').then(function(reg) {
+                navigator.serviceWorker.register('./sw.js?v=NAV_COLOR_FIX_V40').then(function(reg) {
                     console.log('[TenFlix PWA] Service worker registered, scope:', reg.scope);
+                    if (reg.update) reg.update();
                 }).catch(function(err) {
                     console.warn('[TenFlix PWA] Service worker registration failed:', err);
                 });
@@ -101,4 +107,4 @@
                     transform: scale(1);
                 }
             }
-        </style></div><script src="https://unpkg.com/lucide@latest" defer></script><link rel="stylesheet" href="patch.css?v=POLICY_GATE_GESTURE_V39"><script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script><script src="script.js?v=POLICY_GATE_GESTURE_V39" defer></script></body></html>
+        </style></div><script src="https://unpkg.com/lucide@latest" defer></script><link rel="stylesheet" href="patch.css?v=NAV_COLOR_FIX_V40"><script src="initialContent.js?v=VOICEMAILS_ABSOLUTE_URLS" defer></script><script src="script.js?v=NAV_COLOR_FIX_V40" defer></script></body></html>

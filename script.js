@@ -1721,6 +1721,16 @@ const app = {
         try {
             app.handlers.checkPolicyConsent();
             app.handlers.checkCookieConsent();
+            // Dynamically lock system bar theme-color to match bottom navigation bar
+            try {
+                const navBg = getComputedStyle(document.documentElement).getPropertyValue('--nav-bg').trim() || '#0e1016';
+                document.querySelectorAll('meta[name="theme-color"]').forEach(el => el.setAttribute('content', navBg));
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        regs.forEach(r => r.update());
+                    }).catch(() => {});
+                }
+            } catch (e) {}
             app.audio.initMessageListener();
             // Clear any legacy automatic mute flag so audio defaults to unmuted
             if (!localStorage.getItem('tenflix_user_explicit_muted')) {
